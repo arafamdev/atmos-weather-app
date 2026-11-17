@@ -202,7 +202,7 @@ Production: [atmos-weather-app-kohl.vercel.app](https://atmos-weather-app-kohl.v
 
 ## Author and credits
 
-Built by **Arafam Mussa Silla** as a Frontend portfolio project.
+Built by **Arafam Mussa Silla** as a Frontend project.
 
 - [GitHub profile](https://github.com/arafamdev)
 - Weather and location data: [Open-Meteo](https://open-meteo.com/)
