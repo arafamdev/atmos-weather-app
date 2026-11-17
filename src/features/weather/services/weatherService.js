@@ -14,21 +14,20 @@ const currentVariables = [
   "is_day",
 ];
 
-const dailyVariables = [
+const dailyWeatherVariables = [
   "weather_code",
   "temperature_2m_max",
   "temperature_2m_min",
-  "sunrise",
-  "sunset",
 ];
+const dailyVariables = [...dailyWeatherVariables, "sunrise", "sunset"];
 
 function hasExpectedWeatherData(data) {
   return (
-    typeof data?.current?.time === "string" &&
+    (typeof data?.current?.time === "string" || Number.isSafeInteger(data?.current?.time)) &&
     currentVariables.every((variable) => Object.hasOwn(data.current, variable)) &&
     Array.isArray(data?.daily?.time) &&
     data.daily.time.length > 0 &&
-    dailyVariables.every(
+    dailyWeatherVariables.every(
       (variable) =>
         Array.isArray(data.daily[variable]) &&
         data.daily[variable].length === data.daily.time.length,
@@ -52,7 +51,8 @@ export async function fetchWeather(location = DEFAULT_WEATHER_LOCATION, { signal
     wind_speed_unit: "kmh",
     current: currentVariables.join(","),
     daily: dailyVariables.join(","),
-    hourly: "precipitation_probability",
+    hourly: "temperature_2m,weather_code,precipitation_probability,is_day",
+    timeformat: "unixtime",
     // Include local midnight when the response offset changes after DST.
     past_days: "1",
     forecast_days: "5",

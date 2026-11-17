@@ -1,5 +1,6 @@
 import CurrentWeatherCard from "./CurrentWeatherCard.jsx";
 import DailyForecastList from "./DailyForecastList.jsx";
+import HourlyForecast from "./HourlyForecast.jsx";
 import RainProbabilityChart from "./RainProbabilityChart.jsx";
 
 import { useCityWeather } from "../hooks/useCityWeather.js";
@@ -76,6 +77,12 @@ export function WeatherDashboardContent({ query, location = DEFAULT_WEATHER_LOCA
               isDemo={data.isDemo}
             />
           </div>
+
+          <HourlyForecast
+            forecast={data.hourlyForecast}
+            location={data.location}
+            timezone={data.timezone}
+          />
 
           <RainProbabilityChart
             forecasts={data.rainProbability}

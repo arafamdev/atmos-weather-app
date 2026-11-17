@@ -71,3 +71,20 @@ button {
 button:disabled {
   cursor: not-allowed;
 }
+
+.hourly-scroll {
+  contain: inline-size layout paint;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+}
+
+.hourly-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hourly-scroll {
+    scroll-behavior: auto;
+  }
+}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { fetchPortoWeather, fetchWeather } from "./weatherService.js";
-import { createWeatherData } from "../testing/weatherFixtures.js";
+import { createUnixWeatherData, createWeatherData } from "../testing/weatherFixtures.js";
 
 test("requests Porto with explicit units, timezone and DST-safe coverage", async (context) => {
   const payload = createWeatherData();
@@ -19,7 +19,8 @@ test("requests Porto with explicit units, timezone and DST-safe coverage", async
       wind_speed_unit: "kmh",
       past_days: "1",
       forecast_days: "5",
-      hourly: "precipitation_probability",
+      hourly: "temperature_2m,weather_code,precipitation_probability,is_day",
+      timeformat: "unixtime",
     };
     for (const [key, value] of Object.entries(expected)) {
       assert.equal(request.searchParams.get(key), value);
@@ -74,7 +75,7 @@ test("preserves cancellation before response headers and during body reading", a
 
 test("rejects missing or misaligned weather sections", async (context) => {
   const misaligned = createWeatherData();
-  misaligned.daily.sunrise.pop();
+  misaligned.daily.temperature_2m_max.pop();
   for (const payload of [null, {}, misaligned]) {
     context.mock.method(globalThis, "fetch", async () => Response.json(payload));
     await assert.rejects(fetchPortoWeather(), /unexpected weather data structure/);
@@ -154,4 +155,28 @@ test("generalized requests preserve cancellation during fetch and body reading",
   }));
   await assert.rejects(fetchWeather(location, { signal: bodyController.signal }),
     (error) => error === bodyController.signal.reason);
+});
+
+
+test("accepts the requested Unix response unchanged, including aligned hourly fields", async (context) => {
+  const payload = createUnixWeatherData();
+  context.mock.method(globalThis, "fetch", async () => Response.json(payload));
+  const result = await fetchWeather();
+  assert.deepEqual(result, payload);
+  assert.equal(typeof result.current.time, "number");
+  assert.equal(result.hourly.temperature_2m.length, result.hourly.time.length);
+});
+
+test("optional solar fields do not require extra requests or block weather when absent", async (context) => {
+  const payload = createUnixWeatherData();
+  delete payload.daily.sunrise;
+  payload.daily.sunset = null;
+  const fetchMock = context.mock.method(globalThis, "fetch", async (url) => {
+    const daily = new URL(url).searchParams.get("daily").split(",");
+    assert.ok(daily.includes("sunrise"));
+    assert.ok(daily.includes("sunset"));
+    return Response.json(payload);
+  });
+  assert.deepEqual(await fetchWeather(), payload);
+  assert.equal(fetchMock.mock.callCount(), 1);
 });

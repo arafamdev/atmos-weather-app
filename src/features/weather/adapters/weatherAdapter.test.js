@@ -110,8 +110,8 @@ test("rejects absent sections, mismatched arrays, and missing current or future 
     assert.throws(() => adaptWeatherData(data), /Invalid weather data/);
   }
   const data = createWeatherData();
-  data.daily.sunrise.pop();
-  assert.throws(() => adaptWeatherData(data), /daily.sunrise must align/);
+  data.daily.temperature_2m_max.pop();
+  assert.throws(() => adaptWeatherData(data), /daily.temperature_2m_max must align/);
 
   const missingDay = createWeatherData();
   missingDay.current.time = "2026-11-16T12:00";
@@ -135,7 +135,7 @@ test("rejects impossible dates, invalid times, duplicate dates, and inverted tem
   assert.throws(() => adaptWeatherData(inverted), /temperatures are inverted/);
   const missingSunrise = createWeatherData();
   missingSunrise.daily.sunrise[0] = null;
-  assert.throws(() => adaptWeatherData(missingSunrise), /daily.sunrise/);
+  assert.equal(adaptWeatherData(missingSunrise).currentWeather.sunrise, null);
 });
 
 test("rejects unexpected timezones, offsets, and units instead of mislabelling values", () => {
@@ -211,7 +211,7 @@ test("rejects invalid daily dates, misaligned or duplicate hours, and incorrect 
   assert.throws(() => adaptWeatherData(misaligned), /hourly.precipitation_probability must align/);
   const wrongSunrise = createWeatherData();
   wrongSunrise.daily.sunrise[0] = "2026-11-18T07:15";
-  assert.throws(() => adaptWeatherData(wrongSunrise), /sunrise and sunset must belong/);
+  assert.equal(adaptWeatherData(wrongSunrise).currentWeather.sunrise, null);
 });
 
 test("rejects missing chart slots and invalid future values explicitly", () => {

@@ -8,7 +8,7 @@ import { cityWeatherQueryOptions, useCityWeather } from "./useCityWeather.js";
 import { portoWeatherQueryOptions, usePortoWeather } from "./usePortoWeather.js";
 
 import { adaptWeatherData } from "../adapters/weatherAdapter.js";
-import { createWeatherData } from "../testing/weatherFixtures.js";
+import { createUnixWeatherData, createWeatherData } from "../testing/weatherFixtures.js";
 import { DEFAULT_WEATHER_LOCATION } from "../utils/weatherLocation.js";
 
 const paris = Object.freeze({
@@ -199,4 +199,34 @@ test("both hooks return native Porto success from their shared provider cache", 
   const html = renderToString(createElement(QueryClientProvider, { client }, createElement(HookConsumer)));
   assert.match(html, /success:Porto, Portugal/);
   assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+
+test("Unix hourly forecasts follow city cache isolation without extra queries", async (context) => {
+  const client = createTestClient(context);
+  const pending = Promise.withResolvers();
+  const porto = createUnixWeatherData();
+  porto.hourly.temperature_2m.fill(18);
+  const tokyoData = createUnixWeatherData("2026-11-17", 32400);
+  tokyoData.timezone = "Asia/Tokyo";
+  tokyoData.hourly.temperature_2m.fill(9);
+  const fetchMock = context.mock.method(globalThis, "fetch", (url) =>
+    new URL(url).searchParams.get("timezone") === "Asia/Tokyo"
+      ? pending.promise : Promise.resolve(Response.json(porto)),
+  );
+  const observer = observeWeather(client, DEFAULT_WEATHER_LOCATION, context);
+  const first = await client.fetchQuery(cityWeatherQueryOptions());
+  assert.equal(first.hourlyForecast.forecasts[0].temperature, 18);
+  observer.setOptions(cityWeatherQueryOptions(tokyo));
+  assert.equal(observer.getCurrentResult().data, undefined);
+  pending.resolve(Response.json(tokyoData));
+  const second = await client.fetchQuery(cityWeatherQueryOptions(tokyo));
+  assert.equal(second.hourlyForecast.forecasts[0].temperature, 9);
+  assert.equal(first.hourlyForecast.solarEvents[0].timestamp, porto.daily.sunrise[0]);
+  assert.equal(second.hourlyForecast.solarEvents[0].timestamp, tokyoData.daily.sunrise[0]);
+  assert.notEqual(first.hourlyForecast.solarEvents[0].timestamp, second.hourlyForecast.solarEvents[0].timestamp);
+  assert.equal(second.hourlyForecast.forecasts[0].time, "00:00");
+  observer.setOptions(cityWeatherQueryOptions());
+  assert.equal(observer.getCurrentResult().data, first);
+  assert.equal(fetchMock.mock.callCount(), 2);
 });
