@@ -1,8 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import QueryProvider from "./app/providers/QueryProvider.jsx";
 import App from "./App.jsx";
+
+import QueryProvider from "./app/providers/QueryProvider.jsx";
 
 import "./index.css";
 
