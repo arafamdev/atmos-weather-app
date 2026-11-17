@@ -21,7 +21,7 @@ export function createWeatherData(
       wind_speed_10m: "km/h",
     },
     daily_units: { temperature_2m_max: "°C", temperature_2m_min: "°C" },
-    hourly_units: { precipitation_probability: "%" },
+    hourly_units: { time: "iso8601", temperature_2m: "°C", precipitation_probability: "%" },
     current: {
       time: `${startDate}T12:00`,
       temperature_2m: 18.5,
@@ -41,7 +41,21 @@ export function createWeatherData(
     },
     hourly: {
       time: hours,
+      temperature_2m: hours.map((_, index) => 15 + index % 8),
+      weather_code: hours.map(() => 2),
+      is_day: hours.map((_, index) => index % 24 >= 7 && index % 24 < 18 ? 1 : 0),
       precipitation_probability: hours.map((_, index) => index % 2 === 0 ? 0 : 100),
     },
   };
+}
+
+export function createUnixWeatherData(startDate = "2026-11-17", offsetSeconds = 0, dayCount = 5) {
+  const data = createWeatherData(startDate, offsetSeconds, dayCount);
+  const timestamp = (value) => Date.parse(`${value}Z`) / 1000 - offsetSeconds;
+  data.current.time = timestamp(data.current.time);
+  data.daily.time = data.daily.time.map((date) => timestamp(`${date}T00:00`));
+  for (const field of ["sunrise", "sunset"]) data.daily[field] = data.daily[field].map(timestamp);
+  data.hourly.time = data.hourly.time.map(timestamp);
+  data.hourly_units.time = "unixtime";
+  return data;
 }

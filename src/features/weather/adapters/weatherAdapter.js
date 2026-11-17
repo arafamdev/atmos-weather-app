@@ -1,3 +1,5 @@
+import { adaptHourlyForecast } from "./hourlyWeatherAdapter.js";
+import { adaptSolarEvents } from "./solarEventsAdapter.js";
 import { getWeatherCondition } from "./weatherConditions.js";
 import {
   DEFAULT_WEATHER_LOCATION,
@@ -5,13 +7,12 @@ import {
   normalizeWeatherTimezone,
   validateWeatherLocation,
 } from "../utils/weatherLocation.js";
+import { getApiCalendarDate, getLocalWeatherTime, getWeatherTimestamp } from "../utils/weatherTimestamp.js";
 
 const dailyFields = [
   "weather_code",
   "temperature_2m_max",
   "temperature_2m_min",
-  "sunrise",
-  "sunset",
 ];
 const weekdayFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: "UTC",
@@ -43,31 +44,7 @@ function parseCalendarDate(value, field) {
 }
 
 function getLocalDateTime(value, offsetSeconds, field, localDateTimeFormatter) {
-  if (
-    typeof value !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)
-  ) {
-    invalidData(`${field} must be an ISO local timestamp`);
-  }
-  const datePart = value.slice(0, 10);
-  parseCalendarDate(datePart, field);
-  const hour = Number(value.slice(11, 13));
-  const minute = Number(value.slice(14, 16));
-  if (hour > 23 || minute > 59) {
-    invalidData(`${field} contains an impossible time`);
-  }
-
-  // Open-Meteo ISO timestamps share the response's fixed UTC offset, even across DST.
-  const instant = new Date(Date.parse(`${value}Z`) - offsetSeconds * 1000);
-  const parts = Object.fromEntries(
-    localDateTimeFormatter
-      .formatToParts(instant)
-      .map(({ type, value }) => [type, value]),
-  );
-  return {
-    date: `${parts.year}-${parts.month}-${parts.day}`,
-    time: `${parts.hour}:${parts.minute}`,
-  };
+  return getLocalWeatherTime(getWeatherTimestamp(value, offsetSeconds, field), localDateTimeFormatter);
 }
 
 function requireSeries(series, fields, name) {
@@ -108,10 +85,13 @@ function validateUnits(data) {
 
 function adaptDailyForecast(daily, offsetSeconds, formatter) {
   requireSeries(daily, dailyFields, "daily");
-  return daily.time.map((date, index) => {
+  // Daily boundaries use the response's fixed offset, unlike DST-aware hourly instants.
+  const dates = daily.time.map((value) => getApiCalendarDate(value, offsetSeconds));
+  const solarEvents = adaptSolarEvents(daily, offsetSeconds, formatter);
+  return dates.map((date, index) => {
     const calendarDate = parseCalendarDate(date, `daily.time[${index}]`);
     if (index > 0) {
-      const previousDate = parseCalendarDate(daily.time[index - 1], "daily.time");
+      const previousDate = parseCalendarDate(dates[index - 1], "daily.time");
       if (calendarDate.getTime() - previousDate.getTime() !== 86400000) {
         invalidData("daily.time must contain consecutive calendar days");
       }
@@ -128,17 +108,8 @@ function adaptDailyForecast(daily, offsetSeconds, formatter) {
       invalidData(`daily temperatures are inverted for ${date}`);
     }
 
-    const sunrise = getLocalDateTime(
-      daily.sunrise[index], offsetSeconds, "daily.sunrise", formatter,
-    );
-    const sunset = getLocalDateTime(
-      daily.sunset[index], offsetSeconds, "daily.sunset", formatter,
-    );
-    if (
-      sunrise.date !== date || sunset.date !== date || sunrise.time >= sunset.time
-    ) {
-      invalidData(`sunrise and sunset must belong to ${date} and be chronological`);
-    }
+    const sunrise = solarEvents.find((event) => event.date === date && event.type === "sunrise");
+    const sunset = solarEvents.find((event) => event.date === date && event.type === "sunset");
 
     return {
       id: date,
@@ -146,8 +117,8 @@ function adaptDailyForecast(daily, offsetSeconds, formatter) {
       ...getWeatherCondition(daily.weather_code[index]),
       highTemperature,
       lowTemperature,
-      sunrise: sunrise.time,
-      sunset: sunset.time,
+      sunrise: sunrise?.time ?? null,
+      sunset: sunset?.time ?? null,
     };
   });
 }
@@ -233,7 +204,15 @@ export function adaptWeatherData(data, location = DEFAULT_WEATHER_LOCATION) {
     invalidData("daily data must contain the next four days");
   }
 
+  let hourlyForecast;
+  try {
+    hourlyForecast = adaptHourlyForecast(data, timezone);
+  } catch {
+    hourlyForecast = { date: currentDateTime.date, forecasts: [], isPartial: false, error: true };
+  }
+
   return {
+    hourlyForecast,
     location: locationLabel,
     timezone,
     isDemo: false,

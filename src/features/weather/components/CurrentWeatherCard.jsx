@@ -75,7 +75,7 @@ function CurrentWeatherCard({ weather, WeatherIcon = CloudSun }) {
             Sunrise
           </dt>
           <dd className="mt-1 pl-6 font-semibold">
-            <time dateTime={weather.sunrise}>{weather.sunrise}</time>
+            {weather.sunrise ? <time dateTime={weather.sunrise}>{weather.sunrise}</time> : "Unavailable"}
           </dd>
         </div>
 
@@ -85,7 +85,7 @@ function CurrentWeatherCard({ weather, WeatherIcon = CloudSun }) {
             Sunset
           </dt>
           <dd className="mt-1 pl-6 font-semibold">
-            <time dateTime={weather.sunset}>{weather.sunset}</time>
+            {weather.sunset ? <time dateTime={weather.sunset}>{weather.sunset}</time> : "Unavailable"}
           </dd>
         </div>
       </dl>

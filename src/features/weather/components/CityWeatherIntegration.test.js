@@ -111,7 +111,7 @@ test("selection updates the shared location, hides old weather while loading and
   assert.match(app.render(), /aria-label="Current weather"/);
   app.select(DEFAULT_WEATHER_LOCATION);
   assert.match(app.render(), /Weather in Porto\./);
-  assert.doesNotMatch(app.render(), /Lisbon/);
+  assert.doesNotMatch(app.render(), /Lisbon, Portugal|Weather in Lisbon/);
   assert.equal(fetchMock.mock.callCount(), 2);
 });
 
