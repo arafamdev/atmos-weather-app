@@ -5,6 +5,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 
+import { citySearchReducer, handleCitySearchKeyDown, initialCitySearchState } from "./citySearchHelpers.js";
+
 import { cityWeatherQueryOptions } from "../hooks/useCityWeather.js";
 
 import { adaptWeatherData } from "../adapters/weatherAdapter.js";
@@ -210,4 +212,35 @@ test("missing country and region remain safe in the header and weather panels", 
   const html = app.render();
   assert.match(html, /Weather in Tokyo\./);
   assert.doesNotMatch(html, /Japan|null|undefined|Porto/);
+});
+
+
+test("clearing search after Enter preserves the selected location and its isolated weather query", async (context) => {
+  const client = createClient(context);
+  client.setQueryData(cityWeatherQueryOptions().queryKey, adaptWeatherData(responseFor()));
+  const pending = Promise.withResolvers();
+  const fetchMock = context.mock.method(globalThis, "fetch", () => pending.promise);
+  const app = createIntegration(client, context);
+  let searchState = { inputValue: "Tokyo", searchTerm: "Tokyo", isOpen: true, activeCityId: 1850147 };
+  const suggestion = { ...tokyo, id: 1850147 };
+  const onSelectCity = (city) => {
+    searchState = citySearchReducer(searchState, { type: "select", city });
+    app.select(city);
+  };
+  handleCitySearchKeyDown({ key: "Enter", preventDefault() {} }, {
+    state: searchState, suggestions: [suggestion], dispatch() {}, onSelectCity,
+  });
+  assert.deepEqual(searchState, initialCitySearchState);
+  assert.equal(app.getLocation(), suggestion);
+  assert.match(app.render(), /Weather in Tokyo\./);
+  assert.doesNotMatch(app.render(), /aria-label="Current weather"|Porto/);
+  pending.resolve(Response.json(responseFor(tokyo, 24)));
+  await client.fetchQuery(cityWeatherQueryOptions(suggestion));
+  assert.match(app.render(), /Tokyo, Japan/);
+  assert.match(app.render(), /aria-label="Current weather"/);
+  searchState = citySearchReducer(searchState, { type: "input", value: "" });
+  assert.equal(searchState.inputValue, "");
+  assert.equal(app.getLocation(), suggestion);
+  assert.match(app.render(), /Weather in Tokyo\./);
+  assert.equal(fetchMock.mock.callCount(), 1);
 });

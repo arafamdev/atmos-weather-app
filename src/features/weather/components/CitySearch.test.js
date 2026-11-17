@@ -205,9 +205,9 @@ test("mouse interaction retains input focus and communicates the exact selected 
   assert.equal(onSelectCity.mock.calls[0].arguments[0], cities[1]);
 });
 
-test("selection fills the input, closes the popup and stops the search", () => {
+test("selection clears the input, closes the popup and stops the search", () => {
   const state = citySearchReducer(createProps().state, { type: "select", city: cities[1] });
-  assert.equal(state.inputValue, "Springfield");
+  assert.equal(state.inputValue, "");
   assert.equal(state.searchTerm, "");
   assert.equal(state.isOpen, false);
   assert.equal(state.activeCityId, null);
@@ -233,4 +233,74 @@ test("limits suggestions to ten and hides old results while typing a new term", 
   assert.deepEqual(getCitySuggestions(query, true, true), []);
   assert.deepEqual(getCitySuggestions(query, false, false), []);
   assert.deepEqual(getCitySuggestions({ ...query, isError: true }, true, false), []);
+});
+
+test("Enter selects once, clears the input and stale suggestions, and restores the placeholder", (context) => {
+  let state = { ...createProps().state, activeCityId: cities[1].id };
+  let activeCity = null;
+  const onSelected = context.mock.fn();
+  const dispatch = (action) => { state = citySearchReducer(state, action); };
+  const onSelectCity = (city) => {
+    dispatch({ type: "select", city });
+    activeCity = city;
+    onSelected(city);
+  };
+  const pressEnter = (repeat = false) => handleCitySearchKeyDown({
+    key: "Enter", repeat, preventDefault() {},
+  }, { state, suggestions: cities, dispatch, onSelectCity });
+  pressEnter();
+  pressEnter(true);
+  pressEnter();
+  assert.equal(onSelected.mock.callCount(), 1);
+  assert.equal(activeCity, cities[1]);
+  assert.equal(state.inputValue, "");
+  assert.equal(state.searchTerm, "");
+  assert.equal(state.isOpen, false);
+  const suggestions = getCitySuggestions({ data: cities }, false, true);
+  assert.deepEqual(suggestions, []);
+  const html = renderToStaticMarkup(createElement(CitySearchContent, createProps({ state, suggestions })));
+  assert.match(html, /placeholder="Search city\.\.\."/);
+  assert.match(html, /value=""/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.doesNotMatch(html, /role="listbox"|aria-activedescendant/);
+});
+
+test("mouse and touch pointer selection clear only search state and retain the chosen city", (context) => {
+  for (const pointerType of ["mouse", "touch"]) {
+    let state = createProps().state;
+    let activeCity = cities[0];
+    const selected = context.mock.fn();
+    const onSelectCity = (city) => {
+      state = citySearchReducer(state, { type: "select", city });
+      activeCity = city;
+      selected(city);
+    };
+    const tree = CitySearchContent(createProps({ state, onSelectCity }));
+    const option = findElements(tree, (element) => element.props?.role === "option")[1];
+    const preventDefault = context.mock.fn();
+    option.props.onPointerDown({ pointerType, preventDefault });
+    option.props.onClick();
+    assert.equal(preventDefault.mock.callCount(), 1);
+    assert.equal(selected.mock.callCount(), 1);
+    assert.equal(activeCity, cities[1]);
+    assert.deepEqual(state, initialCitySearchState);
+  }
+});
+
+test("Enter cannot submit empty, unmatched, closed or repeating searches", (context) => {
+  const onSelectCity = context.mock.fn();
+  for (const [state, suggestions, repeat] of [
+    [initialCitySearchState, [], false],
+    [createProps().state, [], false],
+    [{ ...createProps().state, activeCityId: 999 }, cities, false],
+    [{ ...createProps().state, activeCityId: 1, isOpen: false }, cities, false],
+    [{ ...createProps().state, activeCityId: 1 }, cities, true],
+  ]) {
+    const preventDefault = context.mock.fn();
+    handleCitySearchKeyDown({ key: "Enter", repeat, preventDefault }, {
+      state, suggestions, dispatch() {}, onSelectCity,
+    });
+    assert.equal(preventDefault.mock.callCount(), 1);
+  }
+  assert.equal(onSelectCity.mock.callCount(), 0);
 });

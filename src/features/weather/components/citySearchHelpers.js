@@ -33,7 +33,7 @@ export function citySearchReducer(state, action) {
     }
     case "select":
       return {
-        inputValue: action.city.name,
+        inputValue: "",
         searchTerm: "",
         isOpen: false,
         activeCityId: null,
@@ -69,8 +69,9 @@ export function handleCitySearchKeyDown(event, { state, suggestions, dispatch, o
       direction: event.key === "ArrowDown" ? 1 : -1,
       suggestionIds: suggestions.map(({ id }) => id),
     });
-  } else if (event.key === "Enter" && isExpanded) {
+  } else if (event.key === "Enter") {
     event.preventDefault();
+    if (!isExpanded || event.repeat) return;
     const city = suggestions.find(({ id }) => id === state.activeCityId);
     if (city) onSelectCity(city);
   } else if (event.key === "Escape" && isExpanded) {
