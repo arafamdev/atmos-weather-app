@@ -197,7 +197,7 @@ test("mouse interaction retains input focus and communicates the exact selected 
   const tree = CitySearchContent(createProps({ onSelectCity, onActivateCity }));
   const options = findElements(tree, (element) => element.props?.role === "option");
   const preventDefault = context.mock.fn();
-  options[1].props.onPointerDown({ preventDefault });
+  options[1].props.onMouseDown({ preventDefault });
   options[1].props.onPointerMove();
   options[1].props.onClick();
   assert.equal(preventDefault.mock.callCount(), 1);
@@ -265,26 +265,24 @@ test("Enter selects once, clears the input and stale suggestions, and restores t
   assert.doesNotMatch(html, /role="listbox"|aria-activedescendant/);
 });
 
-test("mouse and touch pointer selection clear only search state and retain the chosen city", (context) => {
-  for (const pointerType of ["mouse", "touch"]) {
-    let state = createProps().state;
-    let activeCity = cities[0];
-    const selected = context.mock.fn();
-    const onSelectCity = (city) => {
-      state = citySearchReducer(state, { type: "select", city });
-      activeCity = city;
-      selected(city);
-    };
-    const tree = CitySearchContent(createProps({ state, onSelectCity }));
-    const option = findElements(tree, (element) => element.props?.role === "option")[1];
-    const preventDefault = context.mock.fn();
-    option.props.onPointerDown({ pointerType, preventDefault });
-    option.props.onClick();
-    assert.equal(preventDefault.mock.callCount(), 1);
-    assert.equal(selected.mock.callCount(), 1);
-    assert.equal(activeCity, cities[1]);
-    assert.deepEqual(state, initialCitySearchState);
-  }
+test("click handler clears only search state and retains the chosen city", (context) => {
+  let state = createProps().state;
+  let activeCity = cities[0];
+  const selected = context.mock.fn();
+  const onSelectCity = (city) => {
+    state = citySearchReducer(state, { type: "select", city });
+    activeCity = city;
+    selected(city);
+  };
+  const tree = CitySearchContent(createProps({ state, onSelectCity }));
+  const option = findElements(tree, (element) => element.props?.role === "option")[1];
+  const preventDefault = context.mock.fn();
+  option.props.onMouseDown({ preventDefault });
+  option.props.onClick();
+  assert.equal(preventDefault.mock.callCount(), 1);
+  assert.equal(selected.mock.callCount(), 1);
+  assert.equal(activeCity, cities[1]);
+  assert.deepEqual(state, initialCitySearchState);
 });
 
 test("Enter cannot submit empty, unmatched, closed or repeating searches", (context) => {
