@@ -8,14 +8,14 @@ function CurrentWeatherCard({ weather, WeatherIcon = CloudSun }) {
   return (
     <article
       aria-labelledby={titleId}
-      className="flex min-h-80 flex-col justify-between rounded-3xl bg-app-accent p-6 text-app-background"
+      className="flex min-h-80 flex-col justify-between rounded-3xl bg-app-weather-card p-6 text-app-weather-card-text"
     >
       <div className="flex items-center justify-between gap-4">
         <div>
           <h3 id={titleId} className="text-sm font-medium">
             {weather.location}
           </h3>
-          <p className="mt-1 text-xs text-app-background/70">{weather.dayLabel}</p>
+          <p className="mt-1 text-xs text-app-weather-card-text/70">{weather.dayLabel}</p>
         </div>
 
         {weather.isDemo && (
@@ -35,7 +35,7 @@ function CurrentWeatherCard({ weather, WeatherIcon = CloudSun }) {
 
           <p className="mt-3 text-sm font-medium">{weather.condition}</p>
 
-          <p className="mt-1 text-xs text-app-background/70">
+          <p className="mt-1 text-xs text-app-weather-card-text/70">
             Feels like {weather.feelsLike}°C
           </p>
         </div>
@@ -43,12 +43,12 @@ function CurrentWeatherCard({ weather, WeatherIcon = CloudSun }) {
         <WeatherIcon
           size={100}
           strokeWidth={1.2}
-          className="size-20 shrink-0 text-app-background sm:size-25"
+          className="size-20 shrink-0 text-app-weather-card-text sm:size-25"
           aria-hidden="true"
         />
       </div>
 
-      <dl className="grid grid-cols-1 gap-4 border-t border-app-background/15 pt-5 min-[360px]:grid-cols-2">
+      <dl className="grid grid-cols-1 gap-4 border-t border-app-weather-card-text/15 pt-5 min-[360px]:grid-cols-2">
         <div className="text-xs">
           <dt className="flex items-center gap-2">
             <Droplets size={17} aria-hidden="true" />
