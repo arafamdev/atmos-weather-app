@@ -226,3 +226,72 @@ test("rejects missing chart slots and invalid future values explicitly", () => {
   missingCalendarDay.daily.time[4] = "2026-11-22";
   assert.throws(() => adaptWeatherData(missingCalendarDay), /consecutive calendar days/);
 });
+
+test("adapts labels and timestamps for multiple requested locations", () => {
+  const locations = [
+    { name: "Paris", country: "France", latitude: 48.85, longitude: 2.35,
+      timezone: "Europe/Paris", offset: 3600 },
+    { name: "New York", country: "United States", latitude: 40.71, longitude: -74,
+      timezone: "America/New_York", offset: -18000 },
+    { name: "Tokyo", country: "Japan", latitude: 35.67, longitude: 139.65,
+      timezone: "Asia/Tokyo", offset: 32400 },
+    { name: "Kolkata", country: "India", latitude: 22.57, longitude: 88.36,
+      timezone: "Asia/Kolkata", offset: 19800 },
+  ];
+  for (const location of locations) {
+    const data = createWeatherData("2026-11-17", location.offset);
+    data.timezone = location.timezone;
+    const result = adaptWeatherData(data, Object.freeze(location));
+    assert.equal(result.location, `${location.name}, ${location.country}`);
+    assert.equal(result.currentWeather.location, result.location);
+    assert.equal(result.currentWeather.dayLabel, "Tuesday");
+    assert.equal(result.currentWeather.sunrise, "07:15");
+    assert.equal(result.rainProbability.length, 6);
+    assert.equal(result.rainProbability[0].time, "00:00");
+    assert.equal(result.dailyForecast[0].id, "2026-11-18");
+    assert.equal(result.isDemo, false);
+  }
+});
+
+test("validates the requested timezone, response timezone and optional labels explicitly", () => {
+  const location = { latitude: 48.85, longitude: 2.35, timezone: "Europe/Paris" };
+  const data = { ...createWeatherData("2026-11-17", 3600), timezone: "Europe/Paris" };
+  assert.equal(adaptWeatherData(data, location).location, "48.85, 2.35");
+  assert.throws(() => adaptWeatherData(data, { ...location, timezone: null }), /timezone is required/);
+  assert.throws(() => adaptWeatherData({ ...data, timezone: null }, location), /timezone/);
+  assert.throws(() => adaptWeatherData(createWeatherData(), location), /timezone must be Europe\/Paris/);
+  assert.throws(() => adaptWeatherData(data, { ...location, name: 123 }), /name must be a string/);
+
+  const porto = { name: "Porto", admin1: "Porto", country: "Portugal",
+    latitude: 41.1496, longitude: -8.6109, timezone: "Europe/Lisbon" };
+  assert.equal(adaptWeatherData(createWeatherData(), porto).location, "Porto, Portugal");
+});
+
+test("handles equivalent timezone aliases without mismatching the response", () => {
+  const data = { ...createWeatherData("2026-11-17", 19800), timezone: "Asia/Kolkata" };
+  const location = { latitude: 22.57, longitude: 88.36, timezone: "Asia/Calcutta" };
+  assert.equal(adaptWeatherData(data, location).currentWeather.sunrise, "07:15");
+});
+
+test("preserves DST correction and midnight coverage in New York and Sydney", () => {
+  const cases = [
+    { start: "2026-03-07", today: "2026-03-08", timezone: "America/New_York",
+      latitude: 40.71, longitude: -74, offset: -18000, sunrise: "08:15" },
+    { start: "2026-10-31", today: "2026-11-01", timezone: "America/New_York",
+      latitude: 40.71, longitude: -74, offset: -18000, sunrise: "07:15" },
+    { start: "2026-10-03", today: "2026-10-04", timezone: "Australia/Sydney",
+      latitude: -33.86, longitude: 151.2, offset: 36000, sunrise: "08:15" },
+    { start: "2026-04-04", today: "2026-04-05", timezone: "Australia/Sydney",
+      latitude: -33.86, longitude: 151.2, offset: 36000, sunrise: "07:15" },
+  ];
+  for (const location of cases) {
+    const data = createWeatherData(location.start, location.offset, 6);
+    data.timezone = location.timezone;
+    data.current.time = `${location.today}T12:00`;
+    const result = adaptWeatherData(data, location);
+    assert.equal(result.currentWeather.sunrise, location.sunrise);
+    assert.equal(result.rainProbability[0].time, "00:00");
+    assert.equal(result.rainProbability.length, 6);
+    assert.equal(result.dailyForecast.length, 4);
+  }
+});
