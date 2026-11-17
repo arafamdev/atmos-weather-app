@@ -60,7 +60,7 @@ export function CitySearchContent({
                 id={`${ids.list}-option-${city.id}`}
                 role="option"
                 aria-selected={city.id === state.activeCityId}
-                onPointerDown={(event) => event.preventDefault()}
+                onMouseDown={(event) => event.preventDefault()}
                 onPointerMove={() => onActivateCity(city.id)}
                 onClick={() => onSelectCity(city)}
                 className="cursor-pointer break-words px-4 py-3 text-sm text-app-text hover:bg-app-surface-hover aria-selected:bg-app-surface-hover aria-selected:text-app-accent"
