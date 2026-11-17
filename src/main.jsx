@@ -1,10 +1,15 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "./index.css";
+
+import QueryProvider from "./app/providers/QueryProvider.jsx";
 import App from "./App.jsx";
+
+import "./index.css";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <App />
+    <QueryProvider>
+      <App />
+    </QueryProvider>
   </StrictMode>,
 );
