@@ -1,14 +1,6 @@
-import CurrentWeatherCard from "./features/weather/components/CurrentWeatherCard.jsx";
-import DailyForecastList from "./features/weather/components/DailyForecastList.jsx";
-import RainProbabilityChart from "./features/weather/components/RainProbabilityChart.jsx";
+import WeatherDashboard from "./features/weather/components/WeatherDashboard.jsx";
 import Footer from "./shared/components/layout/Footer.jsx";
 import Header from "./shared/components/layout/Header.jsx";
-
-import {
-  demoDailyForecast,
-  demoRainProbability,
-  demoWeather,
-} from "./features/weather/data/demoWeather.js";
 
 function App() {
   return (
@@ -32,23 +24,7 @@ function App() {
             </p>
           </div>
 
-          <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-            <section aria-label="Current weather" className="min-w-0">
-              <CurrentWeatherCard weather={demoWeather} />
-            </section>
-
-            <DailyForecastList
-              forecasts={demoDailyForecast}
-              location={demoWeather.location}
-              isDemo={demoWeather.isDemo}
-            />
-          </div>
-
-          <RainProbabilityChart
-            forecasts={demoRainProbability}
-            location={demoWeather.location}
-            isDemo={demoWeather.isDemo}
-          />
+          <WeatherDashboard />
         </main>
 
         <Footer />
