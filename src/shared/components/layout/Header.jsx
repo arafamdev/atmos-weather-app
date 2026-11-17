@@ -1,8 +1,12 @@
-import { MapPin, Moon } from "lucide-react";
+import { MapPin, Moon, Sun } from "lucide-react";
 
 import AtmosBrand from "./AtmosBrand.jsx";
 
+import { useTheme } from "../../hooks/useTheme.js";
+
 function Header({ locationLabel, children }) {
+  const { theme, toggleTheme } = useTheme();
+  const ThemeIcon = theme === "light" ? Sun : Moon;
   return (
     <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 md:flex md:flex-wrap md:justify-between md:gap-5">
       <AtmosBrand nameTag="h1" />
@@ -17,14 +21,16 @@ function Header({ locationLabel, children }) {
         {children}
       </div>
 
-      <div
-        role="img"
-        className="col-start-2 row-start-1 flex size-11 items-center justify-center rounded-full border border-app-border bg-app-surface text-app-text"
-        aria-label="Dark theme enabled"
-        title="Dark theme enabled"
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-label="Soft light mode"
+        aria-pressed={theme === "light"}
+        title={theme === "light" ? "Switch to dark mode" : "Switch to soft light mode"}
+        className="col-start-2 row-start-1 flex size-11 shrink-0 items-center justify-center rounded-full border border-app-border bg-app-surface text-app-text hover:bg-app-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
       >
-        <Moon size={20} aria-hidden="true" />
-      </div>
+        <ThemeIcon size={20} aria-hidden="true" />
+      </button>
     </header>
   );
 }

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/features/weather/adapters/*.test.js src/features/weather/hooks/*.test.js src/features/weather/components/*.test.js src/features/weather/services/*.test.js",
+    "test": "node --test src/shared/theme/*.test.js src/features/weather/adapters/*.test.js src/features/weather/hooks/*.test.js src/features/weather/components/*.test.js src/features/weather/services/*.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

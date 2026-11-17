@@ -15,6 +15,22 @@
   --color-text: #f5f5f7;
   --color-text-muted: #a1a1aa;
   --color-border: #34343a;
+  --color-weather-card: #b5d7ee;
+  --color-weather-card-text: #101014;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --color-background: #f2f4f5;
+  --color-surface: #ffffff;
+  --color-surface-hover: #e6edf1;
+  --color-accent: #315f7a;
+  --color-text: #202b33;
+  --color-text-muted: #52616c;
+  --color-border: #a6b3bd;
+  --color-weather-card: #cce2ef;
+  --color-weather-card-text: #182e3c;
 }
 
 @theme inline {
@@ -25,6 +41,8 @@
   --color-app-text: var(--color-text);
   --color-app-muted: var(--color-text-muted);
   --color-app-border: var(--color-border);
+  --color-app-weather-card: var(--color-weather-card);
+  --color-app-weather-card-text: var(--color-weather-card-text);
 }
 
 * {

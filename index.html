@@ -7,6 +7,15 @@
       name="description"
       content="Atmos — Weather, beautifully simplified."
     />
+    <script>
+      // Apply the saved preference before styles and React can paint.
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem("atmos-theme") === "light" ? "light" : "dark";
+      } catch {
+        document.documentElement.dataset.theme = "dark";
+      }
+    </script>
     <title>Atmos | Weather App</title>
   </head>
   <body>
