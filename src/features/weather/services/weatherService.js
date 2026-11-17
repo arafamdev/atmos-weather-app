@@ -1,3 +1,8 @@
+import {
+  DEFAULT_WEATHER_LOCATION,
+  validateWeatherLocation,
+} from "../utils/weatherLocation.js";
+
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
 const currentVariables = [
@@ -36,17 +41,19 @@ function hasExpectedWeatherData(data) {
 }
 
 // Return the API payload unchanged; presentation mapping belongs outside this service.
-export async function fetchPortoWeather({ signal } = {}) {
+export async function fetchWeather(location = DEFAULT_WEATHER_LOCATION, { signal } = {}) {
+  signal?.throwIfAborted();
+  const { latitude, longitude, timezone } = validateWeatherLocation(location);
   const parameters = new URLSearchParams({
-    latitude: "41.1496",
-    longitude: "-8.6109",
-    timezone: "Europe/Lisbon",
+    latitude: String(latitude),
+    longitude: String(longitude),
+    timezone,
     temperature_unit: "celsius",
     wind_speed_unit: "kmh",
     current: currentVariables.join(","),
     daily: dailyVariables.join(","),
     hourly: "precipitation_probability",
-    // Include midnight in Lisbon when the response offset changes after DST.
+    // Include local midnight when the response offset changes after DST.
     past_days: "1",
     forecast_days: "5",
   });
@@ -93,4 +100,8 @@ export async function fetchPortoWeather({ signal } = {}) {
   }
 
   return data;
+}
+
+export function fetchPortoWeather({ signal } = {}) {
+  return fetchWeather(DEFAULT_WEATHER_LOCATION, { signal });
 }

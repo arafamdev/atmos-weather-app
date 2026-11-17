@@ -1,7 +1,11 @@
 import { getWeatherCondition } from "./weatherConditions.js";
+import {
+  DEFAULT_WEATHER_LOCATION,
+  getWeatherLocationLabel,
+  normalizeWeatherTimezone,
+  validateWeatherLocation,
+} from "../utils/weatherLocation.js";
 
-const TIMEZONE = "Europe/Lisbon";
-const LOCATION = "Porto, Portugal";
 const dailyFields = [
   "weather_code",
   "temperature_2m_max",
@@ -9,15 +13,6 @@ const dailyFields = [
   "sunrise",
   "sunset",
 ];
-const localDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
-  timeZone: TIMEZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-});
 const weekdayFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: "UTC",
   weekday: "long",
@@ -47,7 +42,7 @@ function parseCalendarDate(value, field) {
   return date;
 }
 
-function getLocalDateTime(value, offsetSeconds, field) {
+function getLocalDateTime(value, offsetSeconds, field, localDateTimeFormatter) {
   if (
     typeof value !== "string" ||
     !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)
@@ -111,7 +106,7 @@ function validateUnits(data) {
   }
 }
 
-function adaptDailyForecast(daily, offsetSeconds) {
+function adaptDailyForecast(daily, offsetSeconds, formatter) {
   requireSeries(daily, dailyFields, "daily");
   return daily.time.map((date, index) => {
     const calendarDate = parseCalendarDate(date, `daily.time[${index}]`);
@@ -134,10 +129,10 @@ function adaptDailyForecast(daily, offsetSeconds) {
     }
 
     const sunrise = getLocalDateTime(
-      daily.sunrise[index], offsetSeconds, "daily.sunrise",
+      daily.sunrise[index], offsetSeconds, "daily.sunrise", formatter,
     );
     const sunset = getLocalDateTime(
-      daily.sunset[index], offsetSeconds, "daily.sunset",
+      daily.sunset[index], offsetSeconds, "daily.sunset", formatter,
     );
     if (
       sunrise.date !== date || sunset.date !== date || sunrise.time >= sunset.time
@@ -157,10 +152,10 @@ function adaptDailyForecast(daily, offsetSeconds) {
   });
 }
 
-function adaptRainProbability(hourly, currentDate, offsetSeconds) {
+function adaptRainProbability(hourly, currentDate, offsetSeconds, formatter) {
   requireSeries(hourly, ["precipitation_probability"], "hourly");
   const entries = hourly.time.map((timestamp, index) => ({
-    ...getLocalDateTime(timestamp, offsetSeconds, `hourly.time[${index}]`),
+    ...getLocalDateTime(timestamp, offsetSeconds, `hourly.time[${index}]`, formatter),
     probability: requireNumber(
       hourly.precipitation_probability[index],
       "hourly.precipitation_probability",
@@ -186,10 +181,28 @@ function adaptRainProbability(hourly, currentDate, offsetSeconds) {
   return forecasts;
 }
 
-export function adaptWeatherData(data) {
-  if (data?.timezone !== TIMEZONE) {
-    invalidData(`timezone must be ${TIMEZONE}`);
+export function adaptWeatherData(data, location = DEFAULT_WEATHER_LOCATION) {
+  const validatedLocation = validateWeatherLocation(location);
+  const timezone = validatedLocation.timezone;
+  let responseTimezone;
+  try {
+    responseTimezone = normalizeWeatherTimezone(data?.timezone);
+  } catch {
+    invalidData("timezone must be a supported IANA timezone");
   }
+  if (responseTimezone !== timezone) {
+    invalidData(`timezone must be ${timezone}`);
+  }
+  const locationLabel = getWeatherLocationLabel(validatedLocation);
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
   const offsetSeconds = requireNumber(
     data.utc_offset_seconds, "utc_offset_seconds", -50400, 50400,
   );
@@ -200,7 +213,7 @@ export function adaptWeatherData(data) {
 
   const current = data.current;
   const currentDateTime = getLocalDateTime(
-    current?.time, offsetSeconds, "current.time",
+    current?.time, offsetSeconds, "current.time", formatter,
   );
   if (current.is_day !== 0 && current.is_day !== 1) {
     invalidData("current.is_day must be 0 or 1");
@@ -208,7 +221,7 @@ export function adaptWeatherData(data) {
   const { condition, WeatherIcon } = getWeatherCondition(
     current.weather_code, current.is_day === 1,
   );
-  const dailyForecast = adaptDailyForecast(data.daily, offsetSeconds);
+  const dailyForecast = adaptDailyForecast(data.daily, offsetSeconds, formatter);
   const currentDay = dailyForecast.find(({ id }) => id === currentDateTime.date);
   if (!currentDay) {
     invalidData("daily data is missing the current local day");
@@ -221,12 +234,12 @@ export function adaptWeatherData(data) {
   }
 
   return {
-    location: LOCATION,
-    timezone: TIMEZONE,
+    location: locationLabel,
+    timezone,
     isDemo: false,
     currentWeather: {
       isDemo: false,
-      location: LOCATION,
+      location: locationLabel,
       dayLabel: currentDay.dayLabel,
       temperature: requireNumber(
         current.temperature_2m, "current.temperature_2m",
@@ -253,6 +266,6 @@ export function adaptWeatherData(data) {
       highTemperature: day.highTemperature,
       lowTemperature: day.lowTemperature,
     })),
-    rainProbability: adaptRainProbability(data.hourly, currentDateTime.date, offsetSeconds),
+    rainProbability: adaptRainProbability(data.hourly, currentDateTime.date, offsetSeconds, formatter),
   };
 }
