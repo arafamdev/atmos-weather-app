@@ -43,7 +43,19 @@ existing keyboard Enter path), never on pointerdown, pointerup or touchend.
 Scrolling/cancelled gestures therefore do not intentionally select a city, and
 there is no second touch-specific selection path to deduplicate.
 
-## Manual Safari iOS validation before merge
+## Physical iPhone validation and remaining coverage
+
+PR #9 was squash-merged into main as
+`8bd7902805d7c91e52b5617ec360071a730f843a`. The project owner confirmed that
+city search and selection work on Safari on a physical iPhone in production
+after Vercel deployed the correction. This is user-reported device validation,
+not a native iOS test performed by the automated DOM suite. The exact iOS/Safari
+version and native event sequence were not recorded.
+
+The following checklist remains useful for future regressions and broader
+gesture/device coverage; it is not a list of checks all completed on that iPhone.
+
+## Manual Safari iOS regression checklist
 
 1. Open the PR preview on a physical iPhone in Safari. Record iOS/Safari version.
 2. With the keyboard open, search for Lisbon and tap a valid suggestion once.
