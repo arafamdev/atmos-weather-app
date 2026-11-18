@@ -215,9 +215,7 @@ export function adaptWeatherData(data, location = DEFAULT_WEATHER_LOCATION) {
     hourlyForecast,
     location: locationLabel,
     timezone,
-    isDemo: false,
     currentWeather: {
-      isDemo: false,
       location: locationLabel,
       dayLabel: currentDay.dayLabel,
       temperature: requireNumber(

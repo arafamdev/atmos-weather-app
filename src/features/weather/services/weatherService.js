@@ -101,7 +101,3 @@ export async function fetchWeather(location = DEFAULT_WEATHER_LOCATION, { signal
 
   return data;
 }
-
-export function fetchPortoWeather({ signal } = {}) {
-  return fetchWeather(DEFAULT_WEATHER_LOCATION, { signal });
-}

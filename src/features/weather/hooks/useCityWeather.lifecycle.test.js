@@ -4,10 +4,12 @@ import { QueryClient, QueryClientProvider, QueryObserver } from "@tanstack/react
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 
-import { portoWeatherQueryOptions, usePortoWeather } from "./usePortoWeather.js";
+import { cityWeatherQueryOptions, useCityWeather } from "./useCityWeather.js";
 
 import { adaptWeatherData } from "../adapters/weatherAdapter.js";
 import { createWeatherData } from "../testing/weatherFixtures.js";
+
+const portoOptions = cityWeatherQueryOptions();
 
 function createTestClient(context) {
   const client = new QueryClient({
@@ -18,14 +20,14 @@ function createTestClient(context) {
 }
 
 function observeWeather(client, context) {
-  const observer = new QueryObserver(client, portoWeatherQueryOptions);
+  const observer = new QueryObserver(client, portoOptions);
   const unsubscribe = observer.subscribe(() => {});
   context.after(unsubscribe);
   return observer;
 }
 
 function HookConsumer() {
-  const query = usePortoWeather();
+  const query = useCityWeather();
   return createElement(
     "output",
     null,
@@ -59,7 +61,7 @@ test("transitions from loading to success, passes the signal, and caches adapted
   assert.equal(observer.getCurrentResult().isLoading, true);
   assert.equal(observer.getCurrentResult().isFetching, true);
 
-  const data = await client.fetchQuery(portoWeatherQueryOptions);
+  const data = await client.fetchQuery(portoOptions);
   const result = observer.getCurrentResult();
   assert.equal(result.status, "success");
   assert.equal(result.isSuccess, true);
@@ -67,7 +69,7 @@ test("transitions from loading to success, passes the signal, and caches adapted
   assert.equal(result.isFetching, false);
   assert.equal(result.error, null);
   assert.deepEqual(data, adaptWeatherData(payload));
-  assert.equal(client.getQueryData(portoWeatherQueryOptions.queryKey), data);
+  assert.equal(client.getQueryData(portoOptions.queryKey), data);
   assert.equal(fetchMock.mock.callCount(), 1);
 
   const html = renderToString(
@@ -82,14 +84,14 @@ test("shares fresh cache across equivalent keys and simultaneous requests", asyn
     Response.json(createWeatherData()),
   );
   const [first, second] = await Promise.all([
-    client.fetchQuery(portoWeatherQueryOptions),
+    client.fetchQuery(portoOptions),
     client.fetchQuery({
-      ...portoWeatherQueryOptions,
-      queryKey: [...portoWeatherQueryOptions.queryKey],
+      ...portoOptions,
+      queryKey: [...portoOptions.queryKey],
     }),
   ]);
   assert.equal(first, second);
-  assert.equal(await client.fetchQuery(portoWeatherQueryOptions), first);
+  assert.equal(await client.fetchQuery(portoOptions), first);
   assert.equal(fetchMock.mock.callCount(), 1);
 });
 
@@ -98,12 +100,12 @@ test("treats the cache as stale after five minutes and refetches", async (contex
   const fetchMock = context.mock.method(globalThis, "fetch", async () =>
     Response.json(createWeatherData()),
   );
-  const data = await client.fetchQuery(portoWeatherQueryOptions);
-  assert.equal(portoWeatherQueryOptions.staleTime, 300000);
-  client.setQueryData(portoWeatherQueryOptions.queryKey, data, {
-    updatedAt: Date.now() - portoWeatherQueryOptions.staleTime - 1,
+  const data = await client.fetchQuery(portoOptions);
+  assert.equal(portoOptions.staleTime, 300000);
+  client.setQueryData(portoOptions.queryKey, data, {
+    updatedAt: Date.now() - portoOptions.staleTime - 1,
   });
-  await client.fetchQuery(portoWeatherQueryOptions);
+  await client.fetchQuery(portoOptions);
   assert.equal(fetchMock.mock.callCount(), 2);
 });
 
@@ -113,7 +115,7 @@ test("exposes service failures through native error state", async (context) => {
     Response.json({ error: true, reason: "Service unavailable" }, { status: 503 }),
   );
   const observer = observeWeather(client, context);
-  await assert.rejects(client.fetchQuery(portoWeatherQueryOptions), /HTTP 503/);
+  await assert.rejects(client.fetchQuery(portoOptions), /HTTP 503/);
   const result = observer.getCurrentResult();
   assert.equal(result.status, "error");
   assert.equal(result.isError, true);
@@ -129,9 +131,9 @@ test("rejects adapter failures without caching invalid success data", async (con
   payload.current.relative_humidity_2m = 101;
   context.mock.method(globalThis, "fetch", async () => Response.json(payload));
   const observer = observeWeather(client, context);
-  await assert.rejects(client.fetchQuery(portoWeatherQueryOptions), /relative_humidity_2m/);
+  await assert.rejects(client.fetchQuery(portoOptions), /relative_humidity_2m/);
   assert.equal(observer.getCurrentResult().isError, true);
-  assert.equal(client.getQueryData(portoWeatherQueryOptions.queryKey), undefined);
+  assert.equal(client.getQueryData(portoOptions.queryKey), undefined);
 });
 
 test("cancels the in-flight fetch through the query's AbortSignal", async (context) => {
@@ -145,17 +147,17 @@ test("cancels the in-flight fetch through the query's AbortSignal", async (conte
   });
   const observer = observeWeather(client, context);
   assert.equal(requestSignal.aborted, false);
-  await client.cancelQueries({ queryKey: portoWeatherQueryOptions.queryKey });
+  await client.cancelQueries({ queryKey: portoOptions.queryKey });
   assert.equal(requestSignal.aborted, true);
   assert.equal(observer.getCurrentResult().fetchStatus, "idle");
   assert.equal(observer.getCurrentResult().error, null);
-  assert.equal(client.getQueryData(portoWeatherQueryOptions.queryKey), undefined);
+  assert.equal(client.getQueryData(portoOptions.queryKey), undefined);
 });
 
 test("keeps cached data during a background refetch", async (context) => {
   const client = createTestClient(context);
   const cached = adaptWeatherData(createWeatherData());
-  client.setQueryData(portoWeatherQueryOptions.queryKey, cached);
+  client.setQueryData(portoOptions.queryKey, cached);
   const response = Promise.withResolvers();
   context.mock.method(globalThis, "fetch", () => response.promise);
   const observer = observeWeather(client, context);
@@ -182,18 +184,18 @@ test("aborts the request when its last observer unsubscribes", (context) => {
       signal.addEventListener("abort", () => reject(signal.reason), { once: true });
     });
   });
-  const observer = new QueryObserver(client, portoWeatherQueryOptions);
+  const observer = new QueryObserver(client, portoOptions);
   const unsubscribe = observer.subscribe(() => {});
   assert.equal(requestSignal.aborted, false);
   unsubscribe();
   assert.equal(requestSignal.aborted, true);
-  assert.equal(client.getQueryState(portoWeatherQueryOptions.queryKey).fetchStatus, "idle");
+  assert.equal(client.getQueryState(portoOptions.queryKey).fetchStatus, "idle");
 });
 
 test("retains cached data and exposes a native refetch error after a failed refresh", async (context) => {
   const client = createTestClient(context);
   const cached = adaptWeatherData(createWeatherData());
-  client.setQueryData(portoWeatherQueryOptions.queryKey, cached);
+  client.setQueryData(portoOptions.queryKey, cached);
   context.mock.method(globalThis, "fetch", async () =>
     Response.json({ error: true, reason: "Service unavailable" }, { status: 503 }),
   );

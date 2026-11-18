@@ -2,6 +2,10 @@
 
 Data: 17 de novembro de 2026, Europe/Lisbon.
 
+Este relatório regista a finalização documental nessa data. A revisão de
+arquitetura posterior está descrita no final, com as diferenças face a este
+estado histórico.
+
 ## Estado e fontes
 
 O desenvolvimento funcional desta versão está encerrado. A aplicação está
@@ -168,3 +172,71 @@ foi convertida numa alteração funcional sem revisão do utilizador.
 
 Sem merge automático, alterações diretas na main, novas funcionalidades ou
 modificações da configuração Vercel.
+
+## Revisão de arquitetura — 18 de novembro de 2026
+
+Esta revisão substitui a decisão conservadora anterior de preservar dados demo
+e wrappers do Porto. A alteração é feita em `chore/remove-unused-files`, baseada
+na main `ebf95479ed3acedc7483f82b2022fcf8b14e1405`. Foram revistas e integradas
+alterações locais já iniciadas, com autorização explícita do utilizador.
+
+### Caminhos e responsabilidades atuais
+
+Não existem pastas `api` nem ficheiros `locations` em `src`, `public` ou `tests`.
+O histórico versionado consultado também não contém esses caminhos. Não é
+possível atribuir uma origem a pastas vazias que nunca tenham sido versionadas.
+
+`src/features/weather/utils/weatherLocation.js` continua necessário: centraliza
+Porto como localização inicial, coordenadas, labels, validação e normalização de
+timezones IANA. Tem consumidores na aplicação, serviço, hook, adaptador e testes.
+Não é uma lista estática de cidades nem um módulo abandonado.
+
+### Remoções e migrações
+
+- `src/features/weather/data/demoWeather.js`: dados usados na primeira fase
+  visual, sem consumidores executáveis após a integração Open-Meteo; removidos.
+  A pasta `data` deixa de fazer parte da arquitetura.
+- `src/features/weather/hooks/usePortoWeather.js`: wrapper da fase em que Porto
+  era a única cidade. `useCityWeather()` já oferece o mesmo comportamento inicial;
+  testes passam a usar o hook e as query options atuais diretamente.
+- `fetchPortoWeather()` em `services/weatherService.js`: removido o wrapper sem
+  lógica própria. Os testes de pedidos, erros e AbortSignal usam `fetchWeather`.
+- `usePortoWeather.test.js` migra para `useCityWeather.lifecycle.test.js`, mantendo
+  os 10 testes e as 48 asserções de loading, sucesso, cache, staleTime, erros,
+  cancelamento, unsubscribe e refetch.
+- `useCityWeather.test.js`: comparação dos wrappers substituída por equivalência
+  entre Porto implícito e explícito, incluindo partilha de cache e estado nativo.
+- `WeatherDashboard.test.js`: query options antigas substituídas pelas atuais,
+  mantendo os cenários Retry, transições e dados em background.
+- `weatherAdapter.js`, `CurrentWeatherCard.jsx`, `DailyForecastList.jsx`,
+  `RainProbabilityChart.jsx` e `WeatherDashboard.jsx`: removidos metadados/props
+  `isDemo` e badges que o único adaptador de produção mantinha sempre desativados.
+  As asserções do adaptador passam a verificar identidade e consistência da
+  localização real; valores e condições meteorológicas continuam testados.
+- `public/icons.svg`: retirados apenas os símbolos sem referências no projeto
+  `bluesky-icon`, `discord-icon`, `documentation-icon`, `social-icon` e `x-icon`.
+  GitHub e LinkedIn são preservados integralmente, assim como o favicon separado.
+
+Fixtures em `testing/`, os testes DOM em `tests/`, utilitários de localização e
+timestamp, fallbacks meteorológicos e tratamento de dados opcionais são mantidos.
+Não foram alterados endpoints, parâmetros, cache, DST, timezone, pesquisa,
+acessibilidade, estilos ativos ou configuração Vercel. A compatibilidade ISO
+permanece porque faz parte do contrato de timestamps e da cobertura útil.
+
+Não se pressupõe que consumidores externos de fragmentos públicos antigos sejam
+detetáveis: a remoção dos cinco símbolos limita-se ao catálogo sem consumidores
+conhecidos deste projeto. Os dois fragmentos usados pela interface mantêm-se.
+
+### Validação desta revisão
+
+- `npm test`: 178 aprovados, 0 falhas, 0 ignorados; nenhum teste foi eliminado
+  para reduzir a suite. O ficheiro de ciclo de vida foi migrado, não descartado.
+- `npm run lint`, `npm run build` e `git diff --check`: aprovados.
+- Comparação adicional do HTML SSR da main anterior e da refatorização em
+  10 cenários: Porto/Tóquio × loading, erro inicial, sucesso, refetch e erro de
+  refetch. Todas as comparações foram idênticas. Esta verificação de auditoria
+  é separada dos 178 testes e não corresponde a testes visuais ou Safari físico.
+- Símbolos GitHub/LinkedIn preservados sem alteração de conteúdo; favicon,
+  tokens CSS, pesquisa, hooks atuais e configurações sem alterações.
+- Sem imports executáveis dos wrappers/dados removidos, pastas vazias ou links
+  locais Markdown quebrados após a migração.

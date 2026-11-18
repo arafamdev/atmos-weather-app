@@ -1,6 +1,6 @@
 import { useId } from "react";
 
-function RainProbabilityChart({ forecasts, location, isDemo = false }) {
+function RainProbabilityChart({ forecasts, location }) {
   const titleId = useId();
   const descriptionId = useId();
 
@@ -16,12 +16,6 @@ function RainProbabilityChart({ forecasts, location, isDemo = false }) {
           </h3>
           <p className="mt-1 text-sm text-app-muted">{location}</p>
         </div>
-
-        {isDemo && (
-          <span className="rounded-full border border-app-border px-3 py-1 text-xs font-medium text-app-accent">
-            Demo data
-          </span>
-        )}
       </div>
 
       <p id={descriptionId} className="mb-4 text-xs text-app-muted">

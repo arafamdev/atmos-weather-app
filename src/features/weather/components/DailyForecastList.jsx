@@ -2,7 +2,7 @@ import { useId } from "react";
 
 import DailyForecastCard from "./DailyForecastCard.jsx";
 
-function DailyForecastList({ forecasts, location, isDemo = false }) {
+function DailyForecastList({ forecasts, location }) {
   const titleId = useId();
 
   return (
@@ -14,12 +14,6 @@ function DailyForecastList({ forecasts, location, isDemo = false }) {
           </h3>
           <p className="mt-1 text-sm text-app-muted">{location}</p>
         </div>
-
-        {isDemo && (
-          <span className="rounded-full border border-app-border bg-app-surface px-3 py-1 text-xs font-medium text-app-accent">
-            Demo data
-          </span>
-        )}
       </div>
 
       <ul className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">

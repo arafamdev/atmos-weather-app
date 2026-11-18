@@ -17,12 +17,6 @@ function CurrentWeatherCard({ weather, WeatherIcon = CloudSun }) {
           </h3>
           <p className="mt-1 text-xs text-app-weather-card-text/70">{weather.dayLabel}</p>
         </div>
-
-        {weather.isDemo && (
-          <span className="shrink-0 rounded-full bg-app-text/40 px-3 py-1 text-xs font-medium">
-            Demo data
-          </span>
-        )}
       </div>
 
       <div className="flex items-center justify-between gap-4 py-8">

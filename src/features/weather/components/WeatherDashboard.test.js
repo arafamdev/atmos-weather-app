@@ -5,7 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 
-import { portoWeatherQueryOptions } from "../hooks/usePortoWeather.js";
+import { cityWeatherQueryOptions } from "../hooks/useCityWeather.js";
 
 import { adaptWeatherData } from "../adapters/weatherAdapter.js";
 import { createWeatherData } from "../testing/weatherFixtures.js";
@@ -122,7 +122,7 @@ test("preserves Retry during an initial retry and prevents duplicate activation"
   context.after(() => client.clear());
   let response = Promise.resolve(Response.json({ error: true }, { status: 503 }));
   const fetchMock = context.mock.method(globalThis, "fetch", () => response);
-  const observer = new QueryObserver(client, portoWeatherQueryOptions);
+  const observer = new QueryObserver(client, cityWeatherQueryOptions());
   const unsubscribe = observer.subscribe(() => {});
   context.after(unsubscribe);
   await observer.refetch({ cancelRefetch: false });
@@ -155,7 +155,7 @@ test("renders real query transitions and recovers through the Retry handler", as
   context.after(() => client.clear());
   let response = Promise.withResolvers();
   const fetchMock = context.mock.method(globalThis, "fetch", () => response.promise);
-  const observer = new QueryObserver(client, portoWeatherQueryOptions);
+  const observer = new QueryObserver(client, cityWeatherQueryOptions());
   const unsubscribe = observer.subscribe(() => {});
   context.after(unsubscribe);
   assert.match(renderDashboard(observer.getCurrentResult()), /Loading weather/);
