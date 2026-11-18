@@ -56,7 +56,6 @@ src/
   features/weather/
     adapters/                 # API validation, weather codes, hourly and solar mapping
     components/               # Search, dashboard, cards, timeline and chart
-    data/                     # Clearly identified demonstration data
     hooks/                    # City search and location-specific weather queries
     services/                 # Forecast/geocoding HTTP requests and errors
     testing/                  # Controlled API fixtures for tests
@@ -85,13 +84,18 @@ Node test files are colocated with the code they validate.
    AbortSignal to the forecast service.
 4. Pure adapters validate units and values, map weather codes to descriptions and
    icons, and format timestamps for the selected city's timezone.
-5. The dashboard renders adapted data. Demo data remains in its own module and
-   is not used as a silent production fallback.
+5. The dashboard renders adapted API data. Controlled test fixtures live in
+   `testing/` and are not used as a production fallback.
 
 Weather queries have a five-minute staleTime; city-search queries have a
 thirty-minute staleTime. These are cache freshness windows, not polling intervals.
 Requests can be cancelled, and different locations/searches have separate cache
 entries. Focus-triggered refetching is disabled by the provider.
+
+`fetchWeather` and `useCityWeather` both default to Porto when no location is
+provided. There are no separate Porto-only service/hook wrappers or demo-data
+modules. The location utility remains responsible for coordinates, labels and
+timezone validation. The hook lifecycle tests exercise this current API directly.
 
 ## Open-Meteo integration
 

@@ -12,7 +12,6 @@ test("adapts existing prop contracts without mutating the API response", () => {
   const result = adaptWeatherData(data);
 
   assert.deepEqual(result.currentWeather, {
-    isDemo: false,
     location: "Porto, Portugal",
     dayLabel: "Tuesday",
     temperature: 18.5,
@@ -24,7 +23,7 @@ test("adapts existing prop contracts without mutating the API response", () => {
     sunset: "17:32",
   });
   assert.equal(result.CurrentWeatherIcon, getWeatherCondition(2).WeatherIcon);
-  assert.equal(result.isDemo, false);
+  assert.equal(result.location, "Porto, Portugal");
   assert.equal(result.timezone, "Europe/Lisbon");
   assert.equal(result.dailyForecast.length, 4);
   assert.deepEqual(result.dailyForecast[0], {
@@ -249,7 +248,7 @@ test("adapts labels and timestamps for multiple requested locations", () => {
     assert.equal(result.rainProbability.length, 6);
     assert.equal(result.rainProbability[0].time, "00:00");
     assert.equal(result.dailyForecast[0].id, "2026-11-18");
-    assert.equal(result.isDemo, false);
+    assert.equal(result.currentWeather.location, result.location);
   }
 });
 

@@ -74,7 +74,6 @@ export function WeatherDashboardContent({ query, location = DEFAULT_WEATHER_LOCA
             <DailyForecastList
               forecasts={data.dailyForecast}
               location={data.location}
-              isDemo={data.isDemo}
             />
           </div>
 
@@ -87,7 +86,6 @@ export function WeatherDashboardContent({ query, location = DEFAULT_WEATHER_LOCA
           <RainProbabilityChart
             forecasts={data.rainProbability}
             location={data.location}
-            isDemo={data.isDemo}
           />
           <p className="mt-3 text-xs text-app-muted">
             Weather data by{" "}

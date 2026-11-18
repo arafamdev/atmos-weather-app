@@ -5,7 +5,6 @@ import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 
 import { cityWeatherQueryOptions, useCityWeather } from "./useCityWeather.js";
-import { portoWeatherQueryOptions, usePortoWeather } from "./usePortoWeather.js";
 
 import { adaptWeatherData } from "../adapters/weatherAdapter.js";
 import { createUnixWeatherData, createWeatherData } from "../testing/weatherFixtures.js";
@@ -175,25 +174,25 @@ test("a same-city background refetch retains data even if the refresh fails", as
   assert.equal(observer.getCurrentResult().data, previous);
 });
 
-test("Porto and legacy query options share a single cache entry", async (context) => {
+test("implicit and explicit Porto options share a single cache entry", async (context) => {
   const client = createTestClient(context);
   const fetchMock = context.mock.method(globalThis, "fetch", async () => Response.json(createResponse()));
-  assert.deepEqual(portoWeatherQueryOptions.queryKey, cityWeatherQueryOptions().queryKey);
-  const first = await client.fetchQuery(portoWeatherQueryOptions);
+  assert.deepEqual(cityWeatherQueryOptions(DEFAULT_WEATHER_LOCATION).queryKey, cityWeatherQueryOptions().queryKey);
+  const first = await client.fetchQuery(cityWeatherQueryOptions(DEFAULT_WEATHER_LOCATION));
   assert.equal(await client.fetchQuery(cityWeatherQueryOptions()), first);
   assert.equal(first.location, "Porto, Portugal");
   assert.equal(fetchMock.mock.callCount(), 1);
 });
 
-test("both hooks return native Porto success from their shared provider cache", (context) => {
+test("implicit and explicit Porto hooks return native success from their shared cache", (context) => {
   const client = createTestClient(context);
   const data = adaptWeatherData(createResponse());
   client.setQueryData(cityWeatherQueryOptions().queryKey, data);
   const fetchMock = context.mock.method(globalThis, "fetch", () => {});
   function HookConsumer() {
     const current = useCityWeather();
-    const legacy = usePortoWeather();
-    assert.equal(current.data, legacy.data);
+    const explicit = useCityWeather(DEFAULT_WEATHER_LOCATION);
+    assert.equal(current.data, explicit.data);
     return createElement("output", null, `${current.status}:${current.data.location}`);
   }
   const html = renderToString(createElement(QueryClientProvider, { client }, createElement(HookConsumer)));

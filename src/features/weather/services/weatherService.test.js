@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fetchPortoWeather, fetchWeather } from "./weatherService.js";
+import { fetchWeather } from "./weatherService.js";
 import { createUnixWeatherData, createWeatherData } from "../testing/weatherFixtures.js";
+import { DEFAULT_WEATHER_LOCATION } from "../utils/weatherLocation.js";
 
 test("requests Porto with explicit units, timezone and DST-safe coverage", async (context) => {
   const payload = createWeatherData();
@@ -28,7 +29,7 @@ test("requests Porto with explicit units, timezone and DST-safe coverage", async
     assert.equal(signal, controller.signal);
     return Response.json(payload);
   });
-  assert.deepEqual(await fetchPortoWeather({ signal: controller.signal }), payload);
+  assert.deepEqual(await fetchWeather(undefined, { signal: controller.signal }), payload);
 });
 
 test("preserves API reasons for HTTP errors and API error payloads", async (context) => {
@@ -36,21 +37,21 @@ test("preserves API reasons for HTTP errors and API error payloads", async (cont
     context.mock.method(globalThis, "fetch", async () =>
       Response.json({ error: true, reason: "Request rejected" }, { status }),
     );
-    await assert.rejects(fetchPortoWeather(), new RegExp(`HTTP ${status}.*Request rejected`));
+    await assert.rejects(fetchWeather(), new RegExp(`HTTP ${status}.*Request rejected`));
   }
 });
 
 test("reports non-JSON HTTP errors and invalid successful JSON", async (context) => {
   context.mock.method(globalThis, "fetch", async () => new Response("Bad gateway", { status: 502 }));
-  await assert.rejects(fetchPortoWeather(), /HTTP 502/);
+  await assert.rejects(fetchWeather(), /HTTP 502/);
   context.mock.method(globalThis, "fetch", async () => new Response("Invalid JSON"));
-  await assert.rejects(fetchPortoWeather(), /invalid JSON/);
+  await assert.rejects(fetchWeather(), /invalid JSON/);
 });
 
 test("wraps network failures while retaining their cause", async (context) => {
   const cause = new TypeError("Network unavailable");
   context.mock.method(globalThis, "fetch", async () => { throw cause; });
-  await assert.rejects(fetchPortoWeather(), (error) =>
+  await assert.rejects(fetchWeather(), (error) =>
     error.cause === cause && /Unable to reach Open-Meteo/.test(error.message),
   );
 });
@@ -60,7 +61,7 @@ test("preserves cancellation before response headers and during body reading", a
   controller.abort();
   context.mock.method(globalThis, "fetch", async () => { throw controller.signal.reason; });
   await assert.rejects(
-    fetchPortoWeather({ signal: controller.signal }),
+    fetchWeather(undefined, { signal: controller.signal }),
     (error) => error === controller.signal.reason,
   );
   context.mock.method(globalThis, "fetch", async () => ({
@@ -68,7 +69,7 @@ test("preserves cancellation before response headers and during body reading", a
     json: async () => { throw controller.signal.reason; },
   }));
   await assert.rejects(
-    fetchPortoWeather({ signal: controller.signal }),
+    fetchWeather(undefined, { signal: controller.signal }),
     (error) => error === controller.signal.reason,
   );
 });
@@ -78,7 +79,7 @@ test("rejects missing or misaligned weather sections", async (context) => {
   misaligned.daily.temperature_2m_max.pop();
   for (const payload of [null, {}, misaligned]) {
     context.mock.method(globalThis, "fetch", async () => Response.json(payload));
-    await assert.rejects(fetchPortoWeather(), /unexpected weather data structure/);
+    await assert.rejects(fetchWeather(), /unexpected weather data structure/);
   }
 });
 
@@ -109,13 +110,13 @@ test("requests different cities using validated coordinates and their own timezo
   }
 });
 
-test("fetchWeather defaults to the same Porto request as the legacy wrapper", async (context) => {
+test("fetchWeather defaults to the same request as an explicit Porto location", async (context) => {
   const requests = [];
   context.mock.method(globalThis, "fetch", async (url) => {
     requests.push(url);
     return Response.json(createWeatherData());
   });
-  assert.deepEqual(await fetchWeather(), await fetchPortoWeather());
+  assert.deepEqual(await fetchWeather(), await fetchWeather(DEFAULT_WEATHER_LOCATION));
   assert.equal(requests[0], requests[1]);
 });
 
