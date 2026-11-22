@@ -154,16 +154,17 @@ function adaptRainProbability(hourly, currentDate, offsetSeconds, formatter) {
 
 export function adaptWeatherData(data, location = DEFAULT_WEATHER_LOCATION) {
   const validatedLocation = validateWeatherLocation(location);
-  const timezone = validatedLocation.timezone;
+  const requestedTimezone = validatedLocation.timezone;
   let responseTimezone;
   try {
     responseTimezone = normalizeWeatherTimezone(data?.timezone);
   } catch {
     invalidData("timezone must be a supported IANA timezone");
   }
-  if (responseTimezone !== timezone) {
-    invalidData(`timezone must be ${timezone}`);
+  if (requestedTimezone !== "auto" && responseTimezone !== requestedTimezone) {
+    invalidData(`timezone must be ${requestedTimezone}`);
   }
+  const timezone = responseTimezone;
   const locationLabel = getWeatherLocationLabel(validatedLocation);
   const formatter = new Intl.DateTimeFormat("en-GB", {
     timeZone: timezone,

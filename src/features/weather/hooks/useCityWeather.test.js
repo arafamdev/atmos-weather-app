@@ -229,3 +229,52 @@ test("Unix hourly forecasts follow city cache isolation without extra queries", 
   assert.equal(observer.getCurrentResult().data, first);
   assert.equal(fetchMock.mock.callCount(), 2);
 });
+
+test("GPS coordinates use automatic timezone resolution and adapt the returned IANA zone", async (context) => {
+  const client = createTestClient(context);
+  const location = { name: "Current location", latitude: tokyo.latitude, longitude: tokyo.longitude,
+    timezone: "auto", source: "geolocation" };
+  context.mock.method(globalThis, "fetch", async (url) => {
+    const parameters = new URL(url).searchParams;
+    assert.equal(parameters.get("latitude"), String(location.latitude));
+    assert.equal(parameters.get("longitude"), String(location.longitude));
+    assert.equal(parameters.get("timezone"), "auto");
+    return Response.json(createResponse(tokyo));
+  });
+  const data = await client.fetchQuery(cityWeatherQueryOptions(location));
+  assert.equal(data.timezone, "Asia/Tokyo");
+  assert.notDeepEqual(cityWeatherQueryOptions(location).queryKey, cityWeatherQueryOptions().queryKey);
+});
+
+test("automatic timezone is restricted to GPS and must resolve to a valid IANA response", async (context) => {
+  const client = createTestClient(context);
+  const location = { name: "Current location", latitude: tokyo.latitude, longitude: tokyo.longitude, timezone: "auto" };
+  await assert.rejects(client.fetchQuery(cityWeatherQueryOptions(location)), /timezone/);
+  context.mock.method(globalThis, "fetch", async () => Response.json({ ...createResponse(tokyo), timezone: "Invalid/Zone" }));
+  await assert.rejects(client.fetchQuery(cityWeatherQueryOptions({ ...location, source: "geolocation" })), /timezone/);
+});
+
+test("GPS locality enrichment reuses a pending forecast and relabels cached results without refetch", async (context) => {
+  const client = createTestClient(context);
+  const location = { name: "Current location", latitude: tokyo.latitude, longitude: tokyo.longitude,
+    timezone: "auto", source: "geolocation" };
+  const namedLocation = { ...location, name: "Tokyo", country: "Japan" };
+  const pending = Promise.withResolvers(); let signal;
+  const fetchMock = context.mock.method(globalThis, "fetch", (_, options) => {
+    signal = options.signal; return pending.promise;
+  });
+  const observer = observeWeather(client, location, context);
+  observer.setOptions(cityWeatherQueryOptions(namedLocation));
+  assert.deepEqual(cityWeatherQueryOptions(location).queryKey, cityWeatherQueryOptions(namedLocation).queryKey);
+  assert.equal(signal.aborted, false);
+  assert.equal(fetchMock.mock.callCount(), 1);
+  pending.resolve(Response.json(createResponse(tokyo)));
+  const cached = await client.fetchQuery(cityWeatherQueryOptions(location));
+  assert.equal(cached.location, "Current location");
+  assert.equal(observer.getCurrentResult().data.location, "Tokyo, Japan");
+  assert.equal(observer.getCurrentResult().data.currentWeather.location, "Tokyo, Japan");
+  observer.setOptions(cityWeatherQueryOptions({ ...namedLocation, admin1: "Tokyo Prefecture" }));
+  assert.equal(observer.getCurrentResult().data.location, "Tokyo, Tokyo Prefecture, Japan");
+  assert.equal(observer.getCurrentResult().data.dailyForecast, cached.dailyForecast);
+  assert.equal(fetchMock.mock.callCount(), 1);
+});

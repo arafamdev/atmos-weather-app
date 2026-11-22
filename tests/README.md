@@ -81,3 +81,13 @@ Firefox and Edge; record device, OS/browser version and tested commit:
    remote Web Inspector, along with option connectivity and loaded script URL.
    Input unchanged plus old heading indicates selection failure; cleared input
    plus new heading indicates downstream forecast loading/error instead.
+
+## Device location integration
+
+Open `/tests/user-location.html` for eleven additional scenarios with App mounted,
+mocked permission/GPS APIs and mocked provider responses. This tests manual city
+priority and returning to GPS without requesting or transmitting physical location.
+The suite includes consecutive manual/GPS selections and a simulated return
+visit with an existing permission grant. The slow-lookup case verifies weather is already visible before the locality
+resolves and that updating its name sends no additional weather request.
+See [device location architecture and manual checklist](../docs/USER_LOCATION.md).

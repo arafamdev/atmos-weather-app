@@ -14,8 +14,11 @@ using real Open-Meteo data.
 - **City search:** debounced suggestions, region/country details for similarly
   named locations, keyboard navigation and pointer selection. Selecting a city
   clears the search field while preserving the active location in the dashboard.
+- **Device location:** explicit consent through “Use my location”, or automatic
+  retrieval only when the Permissions API reports an existing grant. Manual city
+  selection wins over pending GPS requests; the button can return to device location.
 - **Current weather:** temperature, condition, feels-like temperature, humidity,
-  wind speed, sunrise and sunset. Porto, Portugal is the initial location.
+  wind speed, sunrise and sunset. Porto is the initial fallback until a location is selected or obtained.
 - **Daily forecast:** conditions and maximum/minimum temperatures for the next four days.
 - **Hourly timeline:** the selected city's current local calendar day, with
   temperatures, weather icons, precipitation probabilities and a distinct NOW
@@ -39,7 +42,7 @@ using real Open-Meteo data.
 | Styling | Tailwind CSS v4 and semantic CSS theme tokens |
 | Server state | TanStack Query v5 |
 | Icons | Lucide React and a local SVG social-icon sprite |
-| Data | Open-Meteo Forecast and Geocoding APIs, native fetch |
+| Data | Open-Meteo APIs, BigDataCloud client-side reverse geocoding, native fetch |
 | Testing | Node.js test runner, node:assert/strict, React DOM and Vite SSR |
 | Quality and delivery | ESLint, GitHub Actions and Vercel |
 
@@ -106,7 +109,8 @@ timezone validation. The hook lifecycle tests exercise this current API directly
   coordinates, optional administrative details and IANA timezones.
 
 Requests run directly in the browser using native fetch and async/await. Services
-return API payloads; adapters handle the UI contract. Network failures, HTTP/API
+return forecast/search API payloads; adapters handle their UI contracts. The reverse
+lookup service returns only locality labels. Network failures, HTTP/API
 errors, invalid JSON and unexpected structures receive explicit handling.
 Cancelled requests preserve cancellation rather than becoming ordinary errors.
 
@@ -118,7 +122,35 @@ reuse the daily response; unavailable events are omitted rather than invented.
 
 The current public endpoints require no API key in this implementation. Network
 access is required to load new weather or search results; there is no backend,
-authentication or geolocation permission flow.
+authentication or background location tracking.
+
+## Device location and privacy
+
+“Use my location” requests one position through the browser's consent dialog.
+On startup, permission is queried when supported: only an existing `granted`
+permission permits automatic GPS retrieval. Missing/unsupported Permissions API
+always leaves the explicit button available; first visits never auto-prompt.
+
+Fresh device coordinates are sent directly to Open-Meteo for the forecast and
+[BigDataCloud](https://www.bigdatacloud.com/docs/free-api/free-reverse-geocode-to-city-api)
+for an English locality label. No IP fallback or server proxy is used. Coordinates
+are not written to localStorage, analytics or application logs; active state and
+TanStack Query cache hold them in memory. Providers receive the coordinates and
+network metadata under their own privacy policies. The existing theme preference
+is the only feature preference persisted by Atmos.
+
+Open-Meteo resolves the geographic timezone with `timezone=auto`; the adapter
+validates the returned IANA timezone, including for hourly/DST calculations.
+A valid position immediately starts weather loading under “Current location”;
+reverse geocoding runs independently. When the locality arrives, only display
+labels change, without restarting the forecast query. Manual selection cancels
+pending enrichment. Reverse geocoding cannot override GPS coordinates.
+A failed locality lookup shows
+“Current location” while still requesting weather for the device coordinates.
+The label may represent a city, village or administrative locality, not an address.
+Accuracy depends on the browser/device and conditions; it is not guaranteed.
+
+See [technical decisions and manual validation](docs/USER_LOCATION.md).
 
 ## Run locally
 
@@ -209,7 +241,8 @@ Production: [atmos-weather-app-kohl.vercel.app](https://atmos-weather-app-kohl.v
 Built by **Arafam Mussa Silla** as a Frontend project.
 
 - [GitHub profile](https://github.com/arafamdev)
-- Weather and location data: [Open-Meteo](https://open-meteo.com/)
+- Weather and city search: [Open-Meteo](https://open-meteo.com/)
+- Device locality labels: [BigDataCloud](https://www.bigdatacloud.com/)
 - Weather/interface icons: [Lucide](https://lucide.dev/)
 - Custom Atmos favicon and local social-icon assets are included in `public/`.
 
