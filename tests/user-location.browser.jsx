@@ -17,6 +17,8 @@ const geolocationDescriptor = Object.getOwnPropertyDescriptor(navigator, "geoloc
 const permissionsDescriptor = Object.getOwnPropertyDescriptor(navigator, "permissions");
 const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
 const position = { coords: { latitude: 35.6895, longitude: 139.6917 } };
+const tokyo = { id: 1850147, name: "Tokyo", country: "Japan", admin1: null,
+  ...position.coords, timezone: "Asia/Tokyo" };
 const lisbon = { id: 2267057, name: "Lisbon", country: "Portugal", admin1: null,
   latitude: 38.7223, longitude: -9.1393, timezone: "Europe/Lisbon" };
 let root;
@@ -51,21 +53,23 @@ async function mount({ permission = "prompt", supported = true, reverse = "succe
     return Response.json({ ...createWeatherData("2026-11-17", timezone === "Asia/Tokyo" ? 32400 : 0), timezone });
   };
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  client.setQueryData(["cities", "search", "Lisbon"], [lisbon]);
+  for (const city of [lisbon, tokyo]) {
+    client.setQueryData(["cities", "search", city.name], [city]);
+  }
   root = createRoot(container);
   await act(async () => { root.render(<StrictMode><QueryClientProvider client={client}><App /></QueryClientProvider></StrictMode>); });
 }
 function button() { return [...container.querySelectorAll("button")].find((button) => button.textContent.includes("Use my location")); }
 async function request() { await act(async () => { button().click(); }); }
-async function manualCity() {
+async function manualCity(city = lisbon) {
   const input = container.querySelector('[role="combobox"]');
   await act(async () => {
-    input.focus(); valueSetter.call(input, "Lisbon"); input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.focus(); valueSetter.call(input, city.name); input.dispatchEvent(new Event("input", { bubbles: true }));
   });
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 350)); });
   await act(async () => { container.querySelector('[role="option"]').click(); });
   assert(input.value === "", "Manual city selection must still clear input");
-  assert(container.querySelector("main h2").textContent === "Weather in Lisbon.", "Manual city must stay active");
+  assert(container.querySelector("main h2").textContent === `Weather in ${city.name}.`, "Manual city must stay active");
 }
 async function finishGps(index = 0) {
   await act(async () => { await gps[index].success(position); });
@@ -73,6 +77,25 @@ async function finishGps(index = 0) {
 }
 
 const tests = [
+  ["Lisbon to device to Tokyo to device preserves selection and reuses GPS weather", async () => {
+    await mount(); await manualCity();
+    await request(); await finishGps();
+    assert(container.querySelector("main h2").textContent === "Weather in Tokyo.", "First GPS return must work");
+    await manualCity(tokyo);
+    await request(); await finishGps(1);
+    assert(gps.length === 2, "Each explicit GPS action obtains one position");
+    assert(container.querySelector("main h2").textContent === "Weather in Tokyo.", "Second GPS return must work");
+    assert(forecasts.filter((url) => url.searchParams.get("timezone") === "auto").length === 1, "Same GPS coordinates must reuse fresh weather despite label changes");
+  }],
+  ["a new visit retrieves position automatically from an existing grant", async () => {
+    await mount(); assert(gps.length === 0, "The first visit must not auto-prompt");
+    await request(); await finishGps();
+    await act(async () => { root.unmount(); }); client.clear();
+    await mount({ permission: "granted" });
+    assert(gps.length === 1, "A later visit must locate without pressing the button");
+    await finishGps();
+    assert(container.querySelector("main h2").textContent === "Weather in Tokyo.", "The later visit must load device weather");
+  }],
   ["slow locality lookup cannot delay weather or refetch it when the name arrives", async () => {
     await mount({ reverse: "pending" }); await request();
     let pending;

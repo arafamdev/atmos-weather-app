@@ -80,12 +80,15 @@ manual priority, duplicate requests, disposal and auto-timezone forecast mapping
 All external requests are mocked in these tests.
 
 Run `npm run dev`, open `/tests/user-location.html` and choose **Run regression
-tests** for nine mounted React DOM scenarios using the real App, controller,
+tests** for eleven mounted React DOM scenarios using the real App, controller,
 services and query. The page mocks browser permissions/GPS and HTTP, requests no
 physical location and sends no coordinates externally. **Show mocked dashboard**
 after the suite provides a styled, interactive preview; reload before re-running.
 Run `/tests/city-search.html` separately for the twelve existing search scenarios.
-These DOM suites are not part of Node's test command or CI.
+The location suite also covers Lisbon → device → Tokyo → device and a fresh App
+mount whose browser permission is already granted. These DOM suites are not part
+of Node's test command or CI. See [the audit record](USER_LOCATION_AUDIT.md) for
+engine/viewport checks and the physical-device validation still pending.
 
 Synthetic tests cannot prove native permission prompts, GPS accuracy, mobile
 keyboards, native autofill/touch synthesis, provider availability or every browser.
