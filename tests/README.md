@@ -1,74 +1,83 @@
 # City Search interaction regression checks
 
-Run the existing Node suite with `npm test`. It covers reducers, keyboard handlers,
-query isolation, cancellation and dashboard integration, but does not mount a DOM
-or synthesize browser gestures.
+Run `npm test` for the Node suite: keyboard handlers, query isolation,
+cancellation, forecast parameters and dashboard integration. It does not mount a DOM.
 
-For the mounted React checks, run `npm run dev`, open
-`http://localhost:5173/tests/city-search.html` and choose **Run regression tests**.
-All five checks should report `PASS`. This page uses the real `CitySearch`
-controller, React DOM and a seeded React Query cache; it makes no API requests.
-Vite's production build does not include this test page.
+Run `npm run dev`, open `http://localhost:5173/tests/city-search.html` and choose
+**Run regression tests** for the separate mounted DOM suite. All twelve checks
+should report `PASS`. The harness mounts the real `AppContent`, CitySearch and
+weather query. Geocoding is seeded in the query cache and forecast requests use
+fixtures; no live API calls are made. It checks the selected city's latitude,
+longitude, timezone, heading and absence of previous-city data.
+The production build excludes this test page. These checks are not part of CI.
 
-The checks dispatch DOM events rather than call React handlers directly. They
-cover an uncancelled touch pointerdown followed by a compatibility click, mouse
-focus retention, cancelled touch gestures, outside blur, keyboard selection,
-duplicate Enter/click and stale suggestions after the debounce clears. Because
-`dispatchEvent` does not execute browser focus default actions, the mouse test
-explicitly models focus transfer when mousedown is not cancelled.
+## Confirmed fragility and correction
 
-These are deterministic event-contract tests, not native touch end-to-end tests.
-They are run separately in a browser and are not part of `npm test` or CI.
-They cannot establish the event ordering of an arbitrary iOS release, reproduce
-its keyboard or prove how it synthesizes click from a physical tap.
+Input blur previously closed and unmounted the list synchronously. When blur
+occurred before the option click, the click target disappeared and no city was
+selected. The DOM regression explicitly blurs the input after touch pointerdown,
+before compatibility mouse events, and verifies one selection and restored focus.
+This reproduces the code-level fragility, not the native event sequence on the
+affected iPhone/iPad, which remains unconfirmed.
 
-## Diagnosis
+Dismissal now follows interaction outside the whole search component: document
+pointerdown, click (including assistive activation) and focusin. Listeners are
+removed on unmount. Escape and Tab still close the popup. Blur alone does not
+remove an option while its click is pending. Selection restores input focus before
+clearing search state, preventing focus from reopening stale suggestions.
 
-Selection depends on `click`, while input blur synchronously closes and unmounts
-the suggestions. The previous option handler cancelled every `pointerdown` to
-retain input focus. This couples click delivery and focus retention to browser
-compatibility-event behavior.
+Selection remains click/Enter only, with a synchronous guard against duplicate
+callbacks. No pointerdown, touchstart or mousedown is cancelled. Native scroll
+and cancelled gestures have no separate selection path. Touch/pen pointermove
+does not activate options; only keyboard navigation triggers scrollIntoView.
 
-The [Pointer Events specification](https://www.w3.org/TR/pointerevents/)
-distinguishes click from compatibility mouse events: cancelling pointerdown
-should not suppress click. However, WebKit has documented a regression where
-doing exactly that suppresses synthetic clicks on iOS:
-[WebKit fix 7ac1727](https://github.com/WebKit/WebKit/commit/7ac1727cb827b51dc695c8d95b82ea74abc10d6b).
-This is evidence for the failure mechanism, not confirmation that the reporter's
-iPhone runs that affected WebKit version.
+The original eight DOM cases cover early touch blur, early mouse blur, normal compatibility
+click, outside focus/pointer, Tab, touch scroll/cancellation, keyboard navigation,
+Escape, repeated Enter/click, clearing and debounce completion. A scroll spy checks
+that touch does not scroll programmatically and keyboard navigation does.
 
-The fix leaves pointerdown/touchend untouched and prevents the focus default
-action on mousedown instead. Selection still happens only on click (or the
-existing keyboard Enter path), never on pointerdown, pointerup or touchend.
-Scrolling/cancelled gestures therefore do not intentionally select a city, and
-there is no second touch-specific selection path to deduplicate.
+The lifecycle checks additionally cover consecutive Lisbon → Tokyo → Porto
+selections in one mounted AppContent, refocus of an uncommitted query, empty
+reopening after selection, a change-only autofill event, and a reentrant click
+before React commits. Every case runs in StrictMode. Listener instrumentation
+checks setup/cleanup replay and matching callback/capture removal on unmount.
+Internal option child targets and input focus must not dismiss the popup.
 
-## Physical iPhone validation and remaining coverage
+Autofill coverage models a browser-delivered input/change event. It does not
+verify native browser autofill UI or silent DOM value changes without events;
+React cannot update the controlled search state from an unreported mutation.
 
-PR #9 was squash-merged into main as
-`8bd7902805d7c91e52b5617ec360071a730f843a`. The project owner confirmed that
-city search and selection work on Safari on a physical iPhone in production
-after Vercel deployed the correction. This is user-reported device validation,
-not a native iOS test performed by the automated DOM suite. The exact iOS/Safari
-version and native event sequence were not recorded.
+## Historical Safari fix
 
-The following checklist remains useful for future regressions and broader
-gesture/device coverage; it is not a list of checks all completed on that iPhone.
+PR #9 (`8bd7902805d7c91e52b5617ec360071a730f843a`) replaced pointerdown
+cancellation with mousedown cancellation. The owner reported successful Safari
+selection on a physical iPhone after deployment. Versions and event traces were
+not recorded. That earlier result does not identify the newer Chrome iOS issue.
+The current correction removes the dependency on cancelling focus defaults.
 
-## Manual Safari iOS regression checklist
+## Limits and manual browser checklist
 
-1. Open the PR preview on a physical iPhone in Safari. Record iOS/Safari version.
-2. With the keyboard open, search for Lisbon and tap a valid suggestion once.
-   Confirm the dashboard changes city, the input empties, its placeholder
-   returns and suggestions close. Weather must not show Porto under Lisbon.
-3. Repeat with Tokyo and Porto, tapping both the city name and its metadata.
-4. Scroll a long list of suggestions and cancel a gesture. Neither should select
-   a city. Tap outside the search: suggestions must close normally.
-5. Repeat selection quickly, reopen the input, and check that no old suggestions
-   reappear after 300 ms. Verify focus is usable for another search.
-6. With a hardware keyboard, check ArrowUp/ArrowDown, Enter, held Enter, Escape
-   and Tab. Check a desktop mouse click, both themes and a narrow viewport.
-7. If failure remains, use Safari's remote Web Inspector to capture pointerdown,
-   pointerup, touchend, mousedown, click and focusout on the input/list. Include
-   pointerType, defaultPrevented and whether the option remains connected.
-   Do not assume all browsers share one fixed event ordering.
+Synthetic dispatchEvent does not synthesize native touch clicks, scrolling,
+keyboard focus defaults or mobile keyboards. Tests model focus transfer explicitly.
+Chromium desktop or WebKit desktop cannot prove iOS compatibility.
+
+Run this checklist in iPhone Chrome and Safari, iPadOS, Android Chrome, desktop
+Firefox and Edge; record device, OS/browser version and tested commit:
+
+1. With keyboard open, search Lisbon; tap its name, then repeat using metadata.
+   Heading and weather must change, input clear, placeholder return and popup
+   close. Confirm one selection, without duplicate forecast submissions.
+2. Repeat with keyboard dismissed, Tokyo, Porto and rapid city changes. No weather
+   from the previous city may appear under the new heading.
+3. Scroll a long suggestion list, stop/cancel a gesture and scroll the page. No
+   city should be selected. A subsequent deliberate tap must work.
+4. Click/tap outside, including non-focusable content. Move focus outside. The
+   popup must close without changing city. Reopen and search again.
+5. Use ArrowUp/Down, Enter, held Enter, Escape and Tab/Shift+Tab. Check input focus,
+   screen-reader combobox announcements and unmatched/empty Enter behavior.
+6. Repeat using a mouse and both themes at narrow and wide widths. Check visible
+   focus, popup scrolling, console errors and stale suggestions after 300 ms.
+7. If a device fails, collect pointer/touch, blur/focusout and click order with
+   remote Web Inspector, along with option connectivity and loaded script URL.
+   Input unchanged plus old heading indicates selection failure; cleared input
+   plus new heading indicates downstream forecast loading/error instead.

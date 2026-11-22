@@ -12,7 +12,7 @@ import {
 } from "./citySearchHelpers.js";
 
 export function CitySearchContent({
-  state, suggestions, statusMessage, isError, ids, listRef,
+  state, suggestions, statusMessage, isError, ids, listRef, rootRef,
   inputHandlers, onSelectCity, onActivateCity,
 }) {
   const isExpanded = state.isOpen && [...state.searchTerm].length >= 2;
@@ -21,7 +21,7 @@ export function CitySearchContent({
     ? `${ids.list}-option-${activeCity.id}` : undefined;
 
   return (
-    <div className="relative w-full min-w-0">
+    <div ref={rootRef} className="relative w-full min-w-0">
       <label htmlFor={ids.input} className="sr-only">Search city</label>
       <div className="flex w-full items-center gap-3 rounded-2xl border border-app-border bg-app-surface px-4 py-3 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-app-accent">
         <Search size={19} className="shrink-0 text-app-muted" aria-hidden="true" />
@@ -60,8 +60,9 @@ export function CitySearchContent({
                 id={`${ids.list}-option-${city.id}`}
                 role="option"
                 aria-selected={city.id === state.activeCityId}
-                onMouseDown={(event) => event.preventDefault()}
-                onPointerMove={() => onActivateCity(city.id)}
+                onPointerMove={(event) => {
+                  if (event.pointerType === "mouse") onActivateCity(city.id);
+                }}
                 onClick={() => onSelectCity(city)}
                 className="cursor-pointer break-words px-4 py-3 text-sm text-app-text hover:bg-app-surface-hover aria-selected:bg-app-surface-hover aria-selected:text-app-accent"
               >
@@ -83,6 +84,9 @@ function CitySearch({ onSelectCity }) {
   const [state, dispatch] = useReducer(citySearchReducer, initialCitySearchState);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const listRef = useRef(null);
+  const rootRef = useRef(null);
+  const keyboardNavigation = useRef(false);
+  const selectionCommitted = useRef(false);
   const id = useId();
   const ids = { input: `${id}-input`, list: `${id}-list`, status: `${id}-status` };
   const canSearch = [...state.searchTerm].length >= 2;
@@ -110,10 +114,32 @@ function CitySearch({ onSelectCity }) {
   }, [state.searchTerm]);
 
   useEffect(() => {
+    const root = rootRef.current;
+    const ownerDocument = root.ownerDocument;
+    // Input blur can precede an option click; dismiss only on an outside interaction.
+    function dismissOutside(event) {
+      if (!root.contains(event.target)) dispatch({ type: "close" });
+    }
+    ownerDocument.addEventListener("pointerdown", dismissOutside, true);
+    ownerDocument.addEventListener("click", dismissOutside, true);
+    ownerDocument.addEventListener("focusin", dismissOutside, true);
+    return () => {
+      ownerDocument.removeEventListener("pointerdown", dismissOutside, true);
+      ownerDocument.removeEventListener("click", dismissOutside, true);
+      ownerDocument.removeEventListener("focusin", dismissOutside, true);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!keyboardNavigation.current) return;
     listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
   }, [state.activeCityId]);
 
   function handleSelectCity(city) {
+    if (selectionCommitted.current) return;
+    selectionCommitted.current = true;
+    // Restore input focus before closing so focus does not reopen stale suggestions.
+    rootRef.current.querySelector("input").focus({ preventScroll: true });
     dispatch({ type: "select", city });
     onSelectCity(city);
   }
@@ -126,16 +152,25 @@ function CitySearch({ onSelectCity }) {
       isError={query.isError && !isDebouncing}
       ids={ids}
       listRef={listRef}
+      rootRef={rootRef}
       inputHandlers={{
-        onChange: (event) => dispatch({ type: "input", value: event.target.value }),
+        onChange: (event) => {
+          selectionCommitted.current = false;
+          dispatch({ type: "input", value: event.target.value });
+        },
         onFocus: () => dispatch({ type: "open" }),
-        onBlur: () => dispatch({ type: "close" }),
-        onKeyDown: (event) => handleCitySearchKeyDown(event, {
-          state, suggestions, dispatch, onSelectCity: handleSelectCity,
-        }),
+        onKeyDown: (event) => {
+          keyboardNavigation.current = event.key === "ArrowDown" || event.key === "ArrowUp";
+          handleCitySearchKeyDown(event, {
+            state, suggestions, dispatch, onSelectCity: handleSelectCity,
+          });
+        },
       }}
       onSelectCity={handleSelectCity}
-      onActivateCity={(id) => dispatch({ type: "activate", id })}
+      onActivateCity={(id) => {
+        keyboardNavigation.current = false;
+        dispatch({ type: "activate", id });
+      }}
     />
   );
 }
