@@ -51,17 +51,19 @@ export function createUserLocationController({ geolocation, permissions, onLocat
         return;
       }
       phase = "resolving";
+      onLocation(location);
+      if (!current(request)) return;
       onStatus({ status: "resolving", message: "Identifying your locality…" });
       let message = "Using your device location. Accuracy varies by device and conditions.";
       try {
         const { name, country, admin1 } = await reverseGeocode(location, { signal: controller.signal });
-        location = { ...location, name, country, admin1 };
+        if (!current(request)) return;
+        onLocation({ ...location, name, country, admin1 });
       } catch {
         message = "Locality unavailable. Showing weather for your device coordinates.";
       }
       if (!current(request)) return;
       phase = "idle";
-      onLocation(location);
       onStatus({ status: "success", message });
     }
     try {

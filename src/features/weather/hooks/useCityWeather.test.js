@@ -253,3 +253,28 @@ test("automatic timezone is restricted to GPS and must resolve to a valid IANA r
   context.mock.method(globalThis, "fetch", async () => Response.json({ ...createResponse(tokyo), timezone: "Invalid/Zone" }));
   await assert.rejects(client.fetchQuery(cityWeatherQueryOptions({ ...location, source: "geolocation" })), /timezone/);
 });
+
+test("GPS locality enrichment reuses a pending forecast and relabels cached results without refetch", async (context) => {
+  const client = createTestClient(context);
+  const location = { name: "Current location", latitude: tokyo.latitude, longitude: tokyo.longitude,
+    timezone: "auto", source: "geolocation" };
+  const namedLocation = { ...location, name: "Tokyo", country: "Japan" };
+  const pending = Promise.withResolvers(); let signal;
+  const fetchMock = context.mock.method(globalThis, "fetch", (_, options) => {
+    signal = options.signal; return pending.promise;
+  });
+  const observer = observeWeather(client, location, context);
+  observer.setOptions(cityWeatherQueryOptions(namedLocation));
+  assert.deepEqual(cityWeatherQueryOptions(location).queryKey, cityWeatherQueryOptions(namedLocation).queryKey);
+  assert.equal(signal.aborted, false);
+  assert.equal(fetchMock.mock.callCount(), 1);
+  pending.resolve(Response.json(createResponse(tokyo)));
+  const cached = await client.fetchQuery(cityWeatherQueryOptions(location));
+  assert.equal(cached.location, "Current location");
+  assert.equal(observer.getCurrentResult().data.location, "Tokyo, Japan");
+  assert.equal(observer.getCurrentResult().data.currentWeather.location, "Tokyo, Japan");
+  observer.setOptions(cityWeatherQueryOptions({ ...namedLocation, admin1: "Tokyo Prefecture" }));
+  assert.equal(observer.getCurrentResult().data.location, "Tokyo, Tokyo Prefecture, Japan");
+  assert.equal(observer.getCurrentResult().data.dailyForecast, cached.dailyForecast);
+  assert.equal(fetchMock.mock.callCount(), 1);
+});

@@ -27,7 +27,8 @@ test("permission granted starts once automatically and preserves actual GPS coor
   assert.equal(h.requests.length, 1);
   assert.deepEqual(h.requests[0][2], { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 });
   await h.requests[0][0](position);
-  assert.deepEqual(h.locations[0], { ...position.coords, name: "Tokyo", country: "Japan", admin1: null,
+  assert.equal(h.locations[0].name, "Current location");
+  assert.deepEqual(h.locations[1], { ...position.coords, name: "Tokyo", country: "Japan", admin1: null,
     timezone: "auto", source: "geolocation" });
   assert.equal(h.states.at(-1).status, "success");
 });
@@ -49,7 +50,7 @@ for (const permissions of [undefined, { query: async () => { throw new TypeError
     assert.equal(h.requests.length, 0);
     h.controller.start();
     await h.requests[0][0](position);
-    assert.equal(h.locations.length, 1);
+    assert.equal(h.locations.length, 2);
   });
 }
 
@@ -80,6 +81,7 @@ test("invalid GPS coordinates are rejected without reverse lookup or Porto subst
 test("reverse lookup failure retains coordinates with a truthful label and automatic timezone", async () => {
   const h = harness({ reverseGeocode: async () => { throw new Error("Offline"); } });
   h.controller.start(); await h.requests[0][0](position);
+  assert.equal(h.locations.length, 1);
   assert.equal(h.locations[0].name, "Current location");
   assert.equal(h.locations[0].latitude, position.coords.latitude);
   assert.equal(h.locations[0].timezone, "auto");
@@ -104,7 +106,8 @@ test("manual selection aborts reverse lookup and ignores an uncancellable late r
   h.controller.start(); assert.equal(h.requests.length, 1);
   h.controller.cancel(); assert.equal(signal.aborted, true);
   reverse.resolve({ name: "Old result" }); await completing;
-  assert.equal(h.locations.length, 0);
+  assert.equal(h.locations.length, 1);
+  assert.equal(h.locations[0].name, "Current location");
   assert.equal(h.states.at(-1).status, "idle");
 });
 
@@ -113,7 +116,8 @@ test("returning to device location works after cancellation and after a complete
   h.controller.start(); await h.requests[1][0](position);
   h.controller.start(); await h.requests[2][0](position);
   await h.requests[2][0](position);
-  assert.equal(h.locations.length, 2);
+  assert.equal(h.locations.length, 4);
+  assert.equal(h.locations.filter(({ name }) => name === "Tokyo").length, 2);
 });
 
 test("disposal suppresses every late callback, including errors, with no state updates", async () => {
@@ -129,4 +133,30 @@ test("StrictMode-style cleanup before permission resolution avoids duplicate GPS
   const second = harness({ permissions: { query: async () => ({ state: "granted" }) } });
   await second.controller.startIfGranted();
   assert.equal(first.requests.length + second.requests.length, 1);
+});
+
+
+test("coordinates publish immediately while a slow locality lookup only enriches identification", async () => {
+  const reverse = Promise.withResolvers();
+  const h = harness({ reverseGeocode: () => reverse.promise });
+  h.controller.start(); const pending = h.requests[0][0](position);
+  assert.deepEqual(h.locations, [{ ...position.coords, name: "Current location", timezone: "auto", source: "geolocation" }]);
+  assert.equal(h.states.at(-1).status, "resolving");
+  reverse.resolve({ name: "Tokyo", country: "Japan", admin1: "Tokyo" }); await pending;
+  assert.equal(h.locations.length, 2);
+  assert.equal(h.locations[1].name, "Tokyo");
+  assert.equal(h.locations[1].latitude, h.locations[0].latitude);
+  assert.equal(h.locations[1].longitude, h.locations[0].longitude);
+  assert.equal(h.locations[1].timezone, "auto");
+});
+
+test("unmount during locality enrichment cannot publish a late name or status", async () => {
+  const reverse = Promise.withResolvers();
+  const h = harness({ reverseGeocode: () => reverse.promise });
+  h.controller.start(); const pending = h.requests[0][0](position);
+  h.controller.dispose(); const stateCount = h.states.length;
+  reverse.resolve({ name: "Late locality" }); await pending;
+  assert.equal(h.locations.length, 1);
+  assert.equal(h.locations[0].name, "Current location");
+  assert.equal(h.states.length, stateCount);
 });

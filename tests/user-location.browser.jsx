@@ -73,6 +73,24 @@ async function finishGps(index = 0) {
 }
 
 const tests = [
+  ["slow locality lookup cannot delay weather or refetch it when the name arrives", async () => {
+    await mount({ reverse: "pending" }); await request();
+    let pending;
+    await act(async () => { pending = gps[0].success(position); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert(container.querySelector("main h2").textContent === "Weather in Current location.", "Publish GPS coordinates before the locality resolves");
+    const card = container.querySelector('[aria-label="Current weather"]');
+    assert(card && card.textContent.includes("Current location"), "Coordinate weather must load while BigDataCloud is still pending");
+    const requestCount = forecasts.length;
+    assert(forecasts.filter((url) => url.searchParams.get("timezone") === "auto").length === 1, "Request one GPS forecast");
+    assert(button().getAttribute("aria-busy") === "true", "Keep locality progress accessible");
+    await act(async () => { resolveReverse(); await pending; });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert(container.querySelector("main h2").textContent === "Weather in Tokyo.", "Enrich the App identification");
+    assert(container.querySelector('[aria-label="Current weather"]').textContent.includes("Tokyo, Japan"), "Relabel the current card without replacing its forecast");
+    assert(!container.querySelector("main").textContent.includes("Current location"), "All forecast sections must use the enriched identification");
+    assert(forecasts.length === requestCount, "Locality-only changes must never restart weather fetching");
+  }],
   ["first visit never prompts; button loads GPS and can return after a manual city", async () => {
     await mount(); assert(gps.length === 0, "Prompt permission must not auto-request GPS");
     await request(); assert(button().disabled && button().getAttribute("aria-busy") === "true", "Announce and disable pending request");

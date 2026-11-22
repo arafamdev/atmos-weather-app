@@ -141,7 +141,11 @@ is the only feature preference persisted by Atmos.
 
 Open-Meteo resolves the geographic timezone with `timezone=auto`; the adapter
 validates the returned IANA timezone, including for hourly/DST calculations.
-Reverse geocoding cannot override GPS coordinates. A failed locality lookup shows
+A valid position immediately starts weather loading under “Current location”;
+reverse geocoding runs independently. When the locality arrives, only display
+labels change, without restarting the forecast query. Manual selection cancels
+pending enrichment. Reverse geocoding cannot override GPS coordinates.
+A failed locality lookup shows
 “Current location” while still requesting weather for the device coordinates.
 The label may represent a city, village or administrative locality, not an address.
 Accuracy depends on the browser/device and conditions; it is not guaranteed.

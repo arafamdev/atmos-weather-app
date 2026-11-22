@@ -19,6 +19,10 @@ UserLocationControl inside the existing Header. CitySearch is unchanged.
   obsolete callbacks are ignored. An AbortController cancels the HTTP lookup.
 - `dispose` invalidates callbacks and aborts HTTP without updating React state.
   StrictMode's permission-query cleanup prevents duplicate startup GPS requests.
+- A valid GPS position is published to App immediately as “Current location” with
+  timezone auto. Weather fetching starts independently of the locality request.
+  A successful lookup publishes only name/country/admin1 over the same GPS
+  coordinates. Revision checks prevent this enrichment overriding manual selection.
 - `reverseGeocodePosition` calls BigDataCloud directly from the device, with a
   five-second timeout, AbortSignal, no credentials and no referrer. It returns only
   name/country/admin1; GPS coordinates can never be replaced by the label service.
@@ -36,6 +40,11 @@ Only locations marked `source: "geolocation"` may use `timezone: "auto"`.
 City search still requires a supported IANA timezone; null/invalid values remain
 errors. The existing fetchWeather sends the coordinate/timezone parameters.
 useCityWeather retains independent cache keys, AbortSignal and native query states.
+GPS queries use a stable “Current location” cache label together with coordinates
+and timezone, rather than the resolved name. Their cached adapted data is label-neutral;
+React Query select applies the current App locality to the display labels without
+refetching or mutating the cache. Manual city query keys are unchanged. Updating a
+name neither aborts a pending forecast nor restarts an already loaded one.
 
 The adapter resolves auto from Open-Meteo's validated IANA response. Explicit
 city timezones must still match that response. No browser timezone or fixed UTC
@@ -71,7 +80,7 @@ manual priority, duplicate requests, disposal and auto-timezone forecast mapping
 All external requests are mocked in these tests.
 
 Run `npm run dev`, open `/tests/user-location.html` and choose **Run regression
-tests** for eight mounted React DOM scenarios using the real App, controller,
+tests** for nine mounted React DOM scenarios using the real App, controller,
 services and query. The page mocks browser permissions/GPS and HTTP, requests no
 physical location and sends no coordinates externally. **Show mocked dashboard**
 after the suite provides a styled, interactive preview; reload before re-running.
@@ -98,8 +107,9 @@ Android Chrome and desktop Chrome/Firefox/Edge, recording OS/browser versions.
    precise coordinates or network traces into public issues.
 4. Search Lisbon while GPS/lookup is pending. Even a late GPS response must not
    replace it. Repeat Tokyo/Porto; then use the location button to return to GPS.
-5. Block BigDataCloud: “Current location” and a lookup warning appear, while the
-   coordinate forecast still loads. Block Open-Meteo: retain its normal error and
+5. Delay BigDataCloud: coordinate weather must load under “Current location”
+   before its response. Releasing it updates all names with no extra forecast
+   request. Block it: retain coordinate weather and announce the lookup warning. Block Open-Meteo: retain its normal error and
    Retry states without falling back to Porto weather under the GPS title.
 6. Test city selection by touch/mouse/keyboard, scroll/cancel, Escape/Tab and
    re-opening after selection. Repeat both themes at 375, 768 and 1440 px.

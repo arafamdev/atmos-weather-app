@@ -84,7 +84,9 @@ Firefox and Edge; record device, OS/browser version and tested commit:
 
 ## Device location integration
 
-Open `/tests/user-location.html` for eight additional scenarios with App mounted,
+Open `/tests/user-location.html` for nine additional scenarios with App mounted,
 mocked permission/GPS APIs and mocked provider responses. This tests manual city
 priority and returning to GPS without requesting or transmitting physical location.
+The slow-lookup case verifies weather is already visible before the locality
+resolves and that updating its name sends no additional weather request.
 See [device location architecture and manual checklist](../docs/USER_LOCATION.md).
