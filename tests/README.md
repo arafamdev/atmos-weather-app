@@ -4,7 +4,7 @@ Run `npm test` for the Node suite: keyboard handlers, query isolation,
 cancellation, forecast parameters and dashboard integration. It does not mount a DOM.
 
 Run `npm run dev`, open `http://localhost:5173/tests/city-search.html` and choose
-**Run regression tests** for the separate mounted DOM suite. All eight checks
+**Run regression tests** for the separate mounted DOM suite. All twelve checks
 should report `PASS`. The harness mounts the real `AppContent`, CitySearch and
 weather query. Geocoding is seeded in the query cache and forecast requests use
 fixtures; no live API calls are made. It checks the selected city's latitude,
@@ -31,10 +31,21 @@ callbacks. No pointerdown, touchstart or mousedown is cancelled. Native scroll
 and cancelled gestures have no separate selection path. Touch/pen pointermove
 does not activate options; only keyboard navigation triggers scrollIntoView.
 
-The eight DOM cases cover early touch blur, early mouse blur, normal compatibility
+The original eight DOM cases cover early touch blur, early mouse blur, normal compatibility
 click, outside focus/pointer, Tab, touch scroll/cancellation, keyboard navigation,
 Escape, repeated Enter/click, clearing and debounce completion. A scroll spy checks
 that touch does not scroll programmatically and keyboard navigation does.
+
+The lifecycle checks additionally cover consecutive Lisbon → Tokyo → Porto
+selections in one mounted AppContent, refocus of an uncommitted query, empty
+reopening after selection, a change-only autofill event, and a reentrant click
+before React commits. Every case runs in StrictMode. Listener instrumentation
+checks setup/cleanup replay and matching callback/capture removal on unmount.
+Internal option child targets and input focus must not dismiss the popup.
+
+Autofill coverage models a browser-delivered input/change event. It does not
+verify native browser autofill UI or silent DOM value changes without events;
+React cannot update the controlled search state from an unreported mutation.
 
 ## Historical Safari fix
 

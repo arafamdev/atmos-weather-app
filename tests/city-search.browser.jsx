@@ -1,4 +1,4 @@
-import { act, useState } from "react";
+import { StrictMode, act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -13,6 +13,11 @@ const city = {
   id: 2267057, name: "Lisbon", country: "Portugal", admin1: "Lisbon",
   latitude: 38.7167, longitude: -9.1333, timezone: "Europe/Lisbon",
 };
+const tokyo = {
+  id: 1850147, name: "Tokyo", country: "Japan", admin1: "Tokyo",
+  latitude: 35.6895, longitude: 139.6917, timezone: "Asia/Tokyo",
+};
+const porto = { ...DEFAULT_WEATHER_LOCATION, id: 2735943 };
 const container = document.getElementById("test-root");
 const results = document.getElementById("results");
 const runButton = document.getElementById("run-tests");
@@ -24,6 +29,12 @@ let weatherRequests;
 const originalFetch = globalThis.fetch;
 const originalScrollIntoView = Element.prototype.scrollIntoView;
 let scrollRequests;
+let duplicateDuringSelection;
+let listenerRegistrations;
+let listenerRemovals;
+const listenerTypes = new Set(["pointerdown", "click", "focusin"]);
+const originalAddListener = document.addEventListener;
+const originalRemoveListener = document.removeEventListener;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -35,6 +46,10 @@ export function SearchHarness() {
     <QueryClientProvider client={client}>
       <AppContent activeLocation={location} onSelectCity={(selected) => {
         selections.push(selected);
+        if (duplicateDuringSelection) {
+          duplicateDuringSelection = false;
+          container.querySelector('[role="option"]').dispatchEvent(mouse("click"));
+        }
         setLocation(selected);
       }} />
       <button id="outside-search" type="button">Outside search</button>
@@ -44,6 +59,17 @@ export function SearchHarness() {
 
 async function mountSearch() {
   selections = [];
+  duplicateDuringSelection = false;
+  listenerRegistrations = [];
+  listenerRemovals = [];
+  document.addEventListener = function (type, callback, capture) {
+    if (listenerTypes.has(type) && capture === true) listenerRegistrations.push({ type, callback, capture });
+    return originalAddListener.call(this, type, callback, capture);
+  };
+  document.removeEventListener = function (type, callback, capture) {
+    if (listenerTypes.has(type) && capture === true) listenerRemovals.push({ type, callback, capture });
+    return originalRemoveListener.call(this, type, callback, capture);
+  };
   weatherRequests = [];
   scrollRequests = 0;
   Element.prototype.scrollIntoView = function () { scrollRequests += 1; };
@@ -51,12 +77,17 @@ async function mountSearch() {
     const request = new URL(url);
     assert(request.hostname === "api.open-meteo.com", "Only forecast requests are expected");
     weatherRequests.push(request);
-    return Response.json(createWeatherData());
+    const timezone = request.searchParams.get("timezone");
+    const data = createWeatherData("2026-11-17", timezone === "Asia/Tokyo" ? 32400 : 0);
+    data.timezone = timezone;
+    return Response.json(data);
   };
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  client.setQueryData(["cities", "search", "Lisbon"], [city]);
+  for (const location of [city, tokyo, porto]) {
+    client.setQueryData(["cities", "search", location.name], [location]);
+  }
   root = createRoot(container);
-  await act(async () => { root.render(<SearchHarness />); });
+  await act(async () => { root.render(<StrictMode><SearchHarness /></StrictMode>); });
   const input = container.querySelector("input");
   await act(async () => {
     input.focus();
@@ -90,7 +121,58 @@ function assertSelected(input) {
   assert(document.activeElement === input, "Keep focus on the combobox");
 }
 
+async function searchAgain(input, name, eventType = "input") {
+  await act(async () => {
+    input.focus();
+    inputValueSetter.call(input, name);
+    input.dispatchEvent(new Event(eventType, { bubbles: true }));
+  });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 350)); });
+  assert(container.querySelector('[role="option"]'), "New search must produce selectable options");
+}
+
 const tests = [
+  ["consecutive Lisbon, Tokyo and Porto selections reset the guard on input and autofill change", async (input) => {
+    await emit(container.querySelector('[role="option"]'), mouse("click"));
+    assertSelected(input);
+    await emit(container.querySelector("#outside-search"), pointer("pointerdown"));
+    await act(async () => { input.blur(); input.focus(); });
+    assert(input.value === "" && !container.querySelector('[role="option"]'), "Reopening cannot revive the selected search");
+    await searchAgain(input, "Tokyo");
+    await emit(input, new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
+    await emit(input, new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    assert(container.querySelector("h2").textContent === "Weather in Tokyo.", "The guard must permit the second selection");
+    // Model autofill delivering a change event without typing individual keys.
+    await searchAgain(input, "Porto", "change");
+    const option = container.querySelector('[role="option"]');
+    await emit(option, pointer("pointerdown"));
+    await act(async () => { input.blur(); });
+    await emit(option, mouse("click"));
+    assert(selections.map(({ name }) => name).join(",") === "Lisbon,Tokyo,Porto", "All legitimate selections must commit once");
+    assert(container.querySelector("h2").textContent === "Weather in Porto.", "The third selection remains active");
+    assert(input.value === "" && input.getAttribute("aria-expanded") === "false", "Each selection clears and closes");
+    assert(weatherRequests.some((url) => url.searchParams.get("timezone") === "Asia/Tokyo"), "The second city must load its forecast");
+  }],
+  ["outside dismissal and refocus retain an uncommitted search", async (input) => {
+    await act(async () => { container.querySelector("#outside-search").focus(); });
+    assert(input.getAttribute("aria-expanded") === "false", "External focus closes the list");
+    await act(async () => { input.focus(); });
+    assert(container.querySelector('[role="option"]'), "Refocus reopens the pending search without new input");
+    await emit(container.querySelector('[role="option"] span'), pointer("pointerdown"));
+    assert(input.getAttribute("aria-expanded") === "true", "Internal child targets must not dismiss suggestions");
+    await emit(input, new FocusEvent("focusin", { bubbles: true }));
+    assert(input.getAttribute("aria-expanded") === "true", "Internal focus must not dismiss suggestions");
+    await emit(container.querySelector('[role="option"] span'), mouse("click"));
+    assertSelected(input);
+  }],
+  ["reentrant click before React commits cannot select twice", async (input) => {
+    duplicateDuringSelection = true;
+    await emit(container.querySelector('[role="option"]'), mouse("click"));
+    assertSelected(input);
+  }],
+  ["StrictMode removes listeners before re-registering them", async () => {
+    assert(listenerRegistrations.length === 6 && listenerRemovals.length === 3, "StrictMode must clean up all three listeners before remount");
+  }],
   ["touch blur before compatibility mouse events still selects exactly once", async (input) => {
     const option = container.querySelector('[role="option"]');
     await emit(option, new Event("touchstart", { bubbles: true }));
@@ -200,6 +282,11 @@ runButton.addEventListener("click", async () => {
       lines.push(`FAIL: ${name}: ${error.message}`);
     } finally {
       await act(async () => { root?.unmount(); });
+      const listenersRemoved = listenerRegistrations.every(({ type, callback, capture }) =>
+        listenerRemovals.some((removed) => removed.type === type && removed.callback === callback && removed.capture === capture));
+      if (!listenersRemoved) lines.push(`FAIL: ${name}: Unmount did not remove every global listener`);
+      document.addEventListener = originalAddListener;
+      document.removeEventListener = originalRemoveListener;
       client?.clear();
       globalThis.fetch = originalFetch;
       Element.prototype.scrollIntoView = originalScrollIntoView;
