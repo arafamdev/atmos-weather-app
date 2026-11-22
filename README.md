@@ -7,7 +7,38 @@ accessible interactions and reliable client-side data handling. Atmos combines
 current conditions, daily and hourly forecasts, city search, and two visual themes
 using real Open-Meteo data.
 
-**[Explore the live application](https://atmos-weather-app-kohl.vercel.app)**
+**[Explore the live application](https://atmos-by-arafam.vercel.app)**
+
+## Application Preview
+
+Real production screenshots with live Open-Meteo weather for Lisbon, captured on
+22 November 2026. Dark and Soft Light share the same responsive interface.
+
+### Desktop
+
+| Dark · 1440 × 900 | Soft Light · 1440 × 900 |
+| --- | --- |
+| ![Atmos desktop in Dark, showing Lisbon current weather and daily forecast](docs/screenshots/desktop-dark.webp) | ![Atmos desktop in Soft Light, showing Lisbon current weather and daily forecast](docs/screenshots/desktop-light.webp) |
+
+### Tablet and mobile
+
+<table>
+  <tr><th>Tablet · Dark</th><th>Tablet · Soft Light</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/tablet-dark.webp" alt="Atmos tablet in Dark, with Lisbon weather and responsive search" width="300" /></td>
+    <td><img src="docs/screenshots/tablet-light.webp" alt="Atmos tablet in Soft Light, with Lisbon weather and responsive search" width="300" /></td>
+  </tr>
+  <tr><th>Mobile · Dark</th><th>Mobile · Soft Light</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/mobile-dark.webp" alt="Atmos mobile in Dark, showing city search and Lisbon current conditions" width="195" /></td>
+    <td><img src="docs/screenshots/mobile-light.webp" alt="Atmos mobile in Soft Light, showing city search and Lisbon current conditions" width="195" /></td>
+  </tr>
+</table>
+
+Tablet images are 768 × 1024; mobile images are 390 × 844. These are real browser
+captures at representative viewport sizes, not photographs of physical devices.
+The dashboard continues below the viewport. No device GPS was requested.
+See [capture method and validation](docs/RESPONSIVE_PREVIEWS.md).
 
 ## Features
 
@@ -185,15 +216,17 @@ npm run build
 git diff --check
 ```
 
-The closeout validation passed **178 Node tests**, ESLint and the production build.
+The 22 November 2026 validation passed **212 Node tests**, ESLint and the production build.
 The runner is **Node.js, not Vitest**. Tests cover services, adapters, cache and
 cancellation, timezone/DST handling, component markup, states, city switching and
 themes. Many component checks use rendered HTML rather than a browser DOM.
 
-Additional mounted React interaction checks are available at
-`/tests/city-search.html` while the development server is running. These five
-checks use synthetic DOM events and run separately from npm test and CI. See
-[browser test instructions and limitations](tests/README.md).
+Additional mounted React interaction suites are available while the development
+server is running: `/tests/city-search.html` has **12 checks** and
+`/tests/user-location.html` has **11 checks**. Both passed in the in-app browser on
+22 November 2026. They use synthetic events and mocked permission/GPS/provider
+responses, run separately from npm test and CI, and do not validate physical GPS
+or native mobile gestures. See [browser test instructions and limitations](tests/README.md).
 
 Following [PR #9](https://github.com/arafamdev/atmos-weather-app/pull/9), the project
 owner confirmed city search and selection on a physical iPhone using Safari,
@@ -224,7 +257,7 @@ changes merged into main trigger automatic production deployments. Vite builds
 the static application into `dist/`. CI checks and Vercel deployments are separate
 signals and should both be reviewed before considering a release validated.
 
-Production: [atmos-weather-app-kohl.vercel.app](https://atmos-weather-app-kohl.vercel.app)
+Production: [atmos-by-arafam.vercel.app](https://atmos-by-arafam.vercel.app)
 
 ## Scope and known limitations
 
