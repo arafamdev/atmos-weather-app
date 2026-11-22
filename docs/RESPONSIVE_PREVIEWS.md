@@ -36,12 +36,12 @@ previews, not full-page screenshots.
 
 | File | Output dimensions | Bytes |
 | --- | --- | ---: |
-| [screenshot/desktop-dark.webp](screenshots/desktop-dark.webp) | 1440 × 900 | 63,006 |
-| [screenshot/desktop-light.webp](screenshots/desktop-light.webp) | 1440 × 900 | 62,098 |
-| [screenshot/tablet-dark.webp](screenshots/tablet-dark.webp) | 768 × 1024 | 47,120 |
-| [screenshot/tablet-light.webp](screenshots/tablet-light.webp) | 768 × 1024 | 45,212 |
-| [screenshot/mobile-dark.webp](screenshots/mobile-dark.webp) | 390 × 844 | 39,222 |
-| [screenshot/mobile-light.webp](screenshots/mobile-light.webp) | 390 × 844 | 37,192 |
+| [screenshots/desktop-dark.webp](screenshots/desktop-dark.webp) | 1440 × 900 | 63,006 |
+| [screenshots/desktop-light.webp](screenshots/desktop-light.webp) | 1440 × 900 | 62,098 |
+| [screenshots/tablet-dark.webp](screenshots/tablet-dark.webp) | 768 × 1024 | 47,120 |
+| [screenshots/tablet-light.webp](screenshots/tablet-light.webp) | 768 × 1024 | 45,212 |
+| [screenshots/mobile-dark.webp](screenshots/mobile-dark.webp) | 390 × 844 | 39,222 |
+| [screenshots/mobile-light.webp](screenshots/mobile-light.webp) | 390 × 844 | 37,192 |
 
 Each final WebP was opened for visual inspection, and its signature, dimensions
 and README path were checked. Both themes loaded without alerts/loading states;
