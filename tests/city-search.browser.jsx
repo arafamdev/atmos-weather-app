@@ -2,7 +2,10 @@ import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import CitySearch from "../src/features/weather/components/CitySearch.jsx";
+import { AppContent } from "../src/App.jsx";
+
+import { createWeatherData } from "../src/features/weather/testing/weatherFixtures.js";
+import { DEFAULT_WEATHER_LOCATION } from "../src/features/weather/utils/weatherLocation.js";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -17,27 +20,39 @@ const inputValueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.protot
 let root;
 let client;
 let selections;
+let weatherRequests;
+const originalFetch = globalThis.fetch;
+const originalScrollIntoView = Element.prototype.scrollIntoView;
+let scrollRequests;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
 export function SearchHarness() {
-  const [location, setLocation] = useState({ name: "Porto" });
+  const [location, setLocation] = useState(DEFAULT_WEATHER_LOCATION);
   return (
     <QueryClientProvider client={client}>
-      <h2>Weather in {location.name}.</h2>
-      <CitySearch onSelectCity={(selected) => {
+      <AppContent activeLocation={location} onSelectCity={(selected) => {
         selections.push(selected);
         setLocation(selected);
       }} />
-      <button type="button">Outside search</button>
+      <button id="outside-search" type="button">Outside search</button>
     </QueryClientProvider>
   );
 }
 
 async function mountSearch() {
   selections = [];
+  weatherRequests = [];
+  scrollRequests = 0;
+  Element.prototype.scrollIntoView = function () { scrollRequests += 1; };
+  globalThis.fetch = async (url) => {
+    const request = new URL(url);
+    assert(request.hostname === "api.open-meteo.com", "Only forecast requests are expected");
+    weatherRequests.push(request);
+    return Response.json(createWeatherData());
+  };
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(["cities", "search", "Lisbon"], [city]);
   root = createRoot(container);
@@ -76,6 +91,36 @@ function assertSelected(input) {
 }
 
 const tests = [
+  ["touch blur before compatibility mouse events still selects exactly once", async (input) => {
+    const option = container.querySelector('[role="option"]');
+    await emit(option, new Event("touchstart", { bubbles: true }));
+    await emit(option, pointer("pointerdown"));
+    await act(async () => { input.blur(); });
+    assert(option.isConnected, "Early blur must not destroy the click target");
+    await emit(option, pointer("pointerup"));
+    await emit(option, new Event("touchend", { bubbles: true }));
+    await emit(option, mouse("mousedown"));
+    await emit(option, mouse("mouseup"));
+    await emit(option, mouse("click"));
+    assertSelected(input);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    const forecast = weatherRequests.find((url) => url.searchParams.get("latitude") === String(city.latitude));
+    assert(forecast?.searchParams.get("longitude") === String(city.longitude), "Selection must request the selected longitude");
+    assert(forecast.searchParams.get("timezone") === city.timezone, "Selection must request the selected timezone");
+    assert(!container.querySelector("main").textContent.includes("Porto"), "The new city must not show old weather");
+  }],
+  ["outside pointer dismisses even when input already lost focus", async (input) => {
+    await act(async () => { input.blur(); });
+    await emit(container.querySelector("#outside-search"), pointer("pointerdown"));
+    assert(!container.querySelector('[role="option"]'), "Outside pointer closes the popup");
+    assert(selections.length === 0, "Outside pointer never selects");
+  }],
+  ["Tab closes the popup without trapping focus", async (input) => {
+    const tab = await emit(input, new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+    assert(!tab.defaultPrevented, "Preserve native Tab navigation");
+    assert(!container.querySelector('[role="option"]'), "Tab closes suggestions");
+  }],
+
   ["touch sequence does not cancel pointerdown and selects once on compatibility click", async (input) => {
     const option = container.querySelector('[role="option"]');
     const down = await emit(option, pointer("pointerdown"));
@@ -94,11 +139,13 @@ const tests = [
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 350)); });
     assert(!container.querySelector('[role="option"]'), "Clearing the debounce must not reopen stale results");
   }],
-  ["mouse retains focus until click without selecting on press", async (input) => {
+  ["mouse blur before click does not dismiss the option", async (input) => {
     const option = container.querySelector('[role="option"]');
     await emit(option, pointer("pointerdown", "mouse"));
     const down = await emit(option, mouse("mousedown"));
-    assert(down.defaultPrevented, "Prevent mouse focus transfer before click");
+    assert(!down.defaultPrevented, "Do not cancel native mouse events");
+    await act(async () => { input.blur(); });
+    assert(option.isConnected, "Blur must not unmount a pending option");
     assert(selections.length === 0, "Do not select on mousedown");
     await emit(option, mouse("mouseup"));
     await emit(option, mouse("click"));
@@ -108,6 +155,9 @@ const tests = [
     const option = container.querySelector('[role="option"]');
     const down = await emit(option, pointer("pointerdown"));
     const move = await emit(option, pointer("pointermove"));
+    assert(scrollRequests === 0, "Touch movement must not trigger programmatic scrolling");
+    assert(input.getAttribute("aria-activedescendant") === null, "Touch movement must not activate options");
+    await emit(container.querySelector('[role="listbox"]'), new Event("scroll"));
     await emit(option, pointer("pointercancel"));
     await emit(option, new Event("touchend", { bubbles: true }));
     assert(!down.defaultPrevented && !move.defaultPrevented, "Leave touch gestures available to the browser");
@@ -115,7 +165,7 @@ const tests = [
     assert(container.querySelector("h2").textContent === "Weather in Porto.", "Preserve active city while scrolling");
   }],
   ["outside blur dismisses suggestions without selecting", async (input) => {
-    await act(async () => { container.querySelector("button").focus(); });
+    await act(async () => { container.querySelector("#outside-search").focus(); });
     assert(document.activeElement !== input, "Allow focus to leave search");
     assert(input.getAttribute("aria-expanded") === "false", "Close on outside blur");
     assert(!container.querySelector('[role="option"]') && selections.length === 0, "Dismiss without selection");
@@ -124,6 +174,7 @@ const tests = [
     await emit(input, new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
     assert(selections.length === 0, "Unmatched Enter must not select");
     await emit(input, new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
+    assert(scrollRequests === 1, "Keyboard navigation scrolls the active option into view");
     assert(document.getElementById(input.getAttribute("aria-activedescendant")), "Active descendant must exist");
     await emit(input, new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
     assert(input.getAttribute("aria-expanded") === "false" && document.activeElement === input, "Escape closes without losing focus");
@@ -150,6 +201,8 @@ runButton.addEventListener("click", async () => {
     } finally {
       await act(async () => { root?.unmount(); });
       client?.clear();
+      globalThis.fetch = originalFetch;
+      Element.prototype.scrollIntoView = originalScrollIntoView;
     }
   }
   results.textContent = lines.join("\n");

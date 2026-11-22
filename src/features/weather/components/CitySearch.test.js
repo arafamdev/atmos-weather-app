@@ -191,16 +191,16 @@ test("Enter without a visible active result and IME composition do not select", 
   assert.equal(dispatch.mock.callCount(), 0);
 });
 
-test("mouse interaction retains input focus and communicates the exact selected city", (context) => {
+test("mouse hover activates a city while touch movement does not activate it", (context) => {
   const onSelectCity = context.mock.fn();
   const onActivateCity = context.mock.fn();
   const tree = CitySearchContent(createProps({ onSelectCity, onActivateCity }));
   const options = findElements(tree, (element) => element.props?.role === "option");
-  const preventDefault = context.mock.fn();
-  options[1].props.onMouseDown({ preventDefault });
-  options[1].props.onPointerMove();
+  assert.equal(options[1].props.onMouseDown, undefined);
+  options[1].props.onPointerMove({ pointerType: "touch" });
+  assert.equal(onActivateCity.mock.callCount(), 0);
+  options[1].props.onPointerMove({ pointerType: "mouse" });
   options[1].props.onClick();
-  assert.equal(preventDefault.mock.callCount(), 1);
   assert.equal(onActivateCity.mock.calls[0].arguments[0], cities[1].id);
   assert.equal(onSelectCity.mock.calls[0].arguments[0], cities[1]);
 });
@@ -276,10 +276,8 @@ test("click handler clears only search state and retains the chosen city", (cont
   };
   const tree = CitySearchContent(createProps({ state, onSelectCity }));
   const option = findElements(tree, (element) => element.props?.role === "option")[1];
-  const preventDefault = context.mock.fn();
-  option.props.onMouseDown({ preventDefault });
+  assert.equal(option.props.onMouseDown, undefined);
   option.props.onClick();
-  assert.equal(preventDefault.mock.callCount(), 1);
   assert.equal(selected.mock.callCount(), 1);
   assert.equal(activeCity, cities[1]);
   assert.deepEqual(state, initialCitySearchState);
