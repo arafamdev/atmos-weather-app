@@ -229,3 +229,27 @@ test("Unix hourly forecasts follow city cache isolation without extra queries", 
   assert.equal(observer.getCurrentResult().data, first);
   assert.equal(fetchMock.mock.callCount(), 2);
 });
+
+test("GPS coordinates use automatic timezone resolution and adapt the returned IANA zone", async (context) => {
+  const client = createTestClient(context);
+  const location = { name: "Current location", latitude: tokyo.latitude, longitude: tokyo.longitude,
+    timezone: "auto", source: "geolocation" };
+  context.mock.method(globalThis, "fetch", async (url) => {
+    const parameters = new URL(url).searchParams;
+    assert.equal(parameters.get("latitude"), String(location.latitude));
+    assert.equal(parameters.get("longitude"), String(location.longitude));
+    assert.equal(parameters.get("timezone"), "auto");
+    return Response.json(createResponse(tokyo));
+  });
+  const data = await client.fetchQuery(cityWeatherQueryOptions(location));
+  assert.equal(data.timezone, "Asia/Tokyo");
+  assert.notDeepEqual(cityWeatherQueryOptions(location).queryKey, cityWeatherQueryOptions().queryKey);
+});
+
+test("automatic timezone is restricted to GPS and must resolve to a valid IANA response", async (context) => {
+  const client = createTestClient(context);
+  const location = { name: "Current location", latitude: tokyo.latitude, longitude: tokyo.longitude, timezone: "auto" };
+  await assert.rejects(client.fetchQuery(cityWeatherQueryOptions(location)), /timezone/);
+  context.mock.method(globalThis, "fetch", async () => Response.json({ ...createResponse(tokyo), timezone: "Invalid/Zone" }));
+  await assert.rejects(client.fetchQuery(cityWeatherQueryOptions({ ...location, source: "geolocation" })), /timezone/);
+});

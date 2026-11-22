@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User location DOM regression tests</title>
+  </head>
+  <body>
+    <h1>User location DOM regression tests</h1>
+    <p>Mocked browser permissions, GPS and HTTP responses. No physical location is requested or transmitted.</p>
+    <button id="run-tests" type="button">Run regression tests</button>
+    <pre id="results" role="status" class="whitespace-pre-wrap break-words">Not run</pre>
+    <button id="show-preview" type="button">Show mocked dashboard</button>
+    <div id="test-root"></div>
+    <script type="module" src="/tests/user-location.browser.jsx"></script>
+  </body>
+</html>

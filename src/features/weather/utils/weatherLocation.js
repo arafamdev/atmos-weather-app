@@ -39,7 +39,10 @@ export function validateWeatherLocation(location) {
       throw new Error(`Invalid weather location: ${field} must be a string when provided.`);
     }
   }
-  return { ...location, timezone: normalizeWeatherTimezone(location.timezone) };
+  // Only device coordinates may ask Open-Meteo to resolve the geographic timezone.
+  const timezone = location.source === "geolocation" && location.timezone === "auto"
+    ? "auto" : normalizeWeatherTimezone(location.timezone);
+  return { ...location, timezone };
 }
 
 export function getWeatherLocationLabel(location) {

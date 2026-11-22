@@ -1,16 +1,19 @@
 import { useState } from "react";
 
 import CitySearch from "./features/weather/components/CitySearch.jsx";
+import UserLocationControl from "./features/weather/components/UserLocationControl.jsx";
 import WeatherDashboard from "./features/weather/components/WeatherDashboard.jsx";
 import Footer from "./shared/components/layout/Footer.jsx";
 import Header from "./shared/components/layout/Header.jsx";
+
+import { useUserLocation } from "./features/weather/hooks/useUserLocation.js";
 
 import {
   DEFAULT_WEATHER_LOCATION,
   getWeatherLocationLabel,
 } from "./features/weather/utils/weatherLocation.js";
 
-export function AppContent({ activeLocation, onSelectCity }) {
+export function AppContent({ activeLocation, onSelectCity, userLocation }) {
   const locationLabel = getWeatherLocationLabel(activeLocation);
 
   return (
@@ -18,6 +21,7 @@ export function AppContent({ activeLocation, onSelectCity }) {
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col">
         <Header locationLabel={locationLabel}>
           <CitySearch onSelectCity={onSelectCity} />
+          {userLocation && <UserLocationControl {...userLocation} />}
         </Header>
 
         <main className="mt-8 flex-1 md:mt-12">
@@ -47,7 +51,12 @@ export function AppContent({ activeLocation, onSelectCity }) {
 
 function App() {
   const [activeLocation, setActiveLocation] = useState(DEFAULT_WEATHER_LOCATION);
-  return <AppContent activeLocation={activeLocation} onSelectCity={setActiveLocation} />;
+  const userLocation = useUserLocation(setActiveLocation);
+  function selectCity(city) {
+    userLocation.cancel();
+    setActiveLocation(city);
+  }
+  return <AppContent activeLocation={activeLocation} onSelectCity={selectCity} userLocation={userLocation} />;
 }
 
 export default App;

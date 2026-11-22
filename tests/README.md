@@ -81,3 +81,10 @@ Firefox and Edge; record device, OS/browser version and tested commit:
    remote Web Inspector, along with option connectivity and loaded script URL.
    Input unchanged plus old heading indicates selection failure; cleared input
    plus new heading indicates downstream forecast loading/error instead.
+
+## Device location integration
+
+Open `/tests/user-location.html` for eight additional scenarios with App mounted,
+mocked permission/GPS APIs and mocked provider responses. This tests manual city
+priority and returning to GPS without requesting or transmitting physical location.
+See [device location architecture and manual checklist](../docs/USER_LOCATION.md).
