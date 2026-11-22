@@ -36,7 +36,7 @@ test("social links have accurate destinations, accessible names and safe new-tab
   assert.equal(links.length, 2);
   for (const [index, href, label, icon] of [
     [0, "https://github.com/arafamdev", "GitHub profile", "github-icon"],
-    [1, "https://www.linkedin.com/", "LinkedIn (temporary link)", "linkedin-icon"],
+    [1, "https://www.linkedin.com/in/arafam-mussa-silla-5a7866446/", "LinkedIn profile", "linkedin-icon"],
   ]) {
     const [, attributes, content] = links[index];
     assert.ok(attributes.includes(`href="${href}"`));
@@ -47,7 +47,8 @@ test("social links have accurate destinations, accessible names and safe new-tab
     assert.match(content, /aria-hidden="true" focusable="false"/);
     assert.ok(content.includes(`icons.svg#${icon}`));
   }
-  assert.match(links[1][2], /LinkedIn \(temporary\)/);
+  assert.match(links[1][2], /LinkedIn$/);
+  assert.doesNotMatch(html, /temporary/i);
 });
 
 test("both existing SVG catalog symbols inherit theme colors rather than hard-coded fills", async () => {
