@@ -9,9 +9,9 @@ const socialLinks = [
   },
   {
     label: "LinkedIn",
-    accessibleName: "LinkedIn (temporary link)",
+    accessibleName: "LinkedIn profile",
     iconId: "linkedin-icon",
-    href: "https://www.linkedin.com/",
+    href: "https://www.linkedin.com/in/arafam-mussa-silla-5a7866446/",
   },
 ];
 

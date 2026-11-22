@@ -2,7 +2,7 @@
 
 **Weather, beautifully simplified.**
 
-A modern, responsive weather app built with React 19, featuring real-time forecasts, city search, device location and Dark/Soft Light themes.
+A modern, responsive weather app built with React 19, featuring current weather and forecasts, city search, device location and Dark/Soft Light themes.
 
 **[Live Demo](https://atmos-by-arafam.vercel.app)**
 
@@ -10,22 +10,24 @@ A modern, responsive weather app built with React 19, featuring real-time foreca
 
 ### Desktop
 
-![Atmos Desktop Dark](docs/screenshots/desktop-dark.webp)
+![Atmos Desktop Dark](docs/screenshots/desktop-dark.png)
 
-![Atmos Desktop Light](docs/screenshots/desktop-light.webp)
+![Atmos Desktop Light](docs/screenshots/desktop-light.png)
 
 ### Responsive Design
 
 |                       Tablet                       |                       Mobile                       |
 | :------------------------------------------------: | :------------------------------------------------: |
-| ![Atmos Tablet](docs/screenshots/tablet-dark.webp) | ![Atmos Mobile](docs/screenshots/mobile-dark.webp) |
+| ![Atmos Tablet](docs/screenshots/tablet.png) | ![Atmos Mobile](docs/screenshots/mobile.png) |
 
 ## Features
 
-- **Live weather:** Current conditions, hourly forecasts and four-day predictions.
+- **Weather:** Current conditions, hourly forecasts and a four-day daily forecast.
+- **Rain and daylight:** Precipitation probability, sunrise and sunset in local time.
 - **City search:** Search worldwide with autocomplete suggestions.
-- **Geolocation:** Get local weather with permission-based GPS.
-- **Dark & Light themes:** Persistent theme preferences.
+- **Device location:** Request local weather with consent; retrieve it automatically
+  when the browser reports an existing permission grant.
+- **Dark & Soft Light themes:** Persistent theme preferences.
 - **Responsive design:** Optimized for desktop, tablet and mobile.
 - **Accessibility:** Keyboard navigation, semantic HTML and visible focus states.
 
@@ -48,17 +50,8 @@ npm ci
 npm run dev
 ```
 
-Requires Node.js 24.
-
-## Testing
-
-```bash
-npm test
-npm run lint
-npm run build
-```
-
-**212 automated tests passed**, plus 23 browser DOM checks using simulated interactions.
+Requires Node.js 24. Open the local URL printed by Vite; no API key or environment
+file is needed. See [validation instructions](tests/README.md) for tests, lint and build.
 
 ## Author
 

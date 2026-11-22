@@ -2,10 +2,10 @@
 
 ## Ownership and flow
 
-App still owns `activeLocation`. `useUserLocation(setActiveLocation)` owns only
+App owns `activeLocation`. `useUserLocation(setActiveLocation)` owns only
 permission/GPS request lifecycle and feedback. Manual `selectCity` first calls
 `cancel`, then changes the active location. AppContent composes CitySearch and
-UserLocationControl inside the existing Header. CitySearch is unchanged.
+UserLocationControl inside Header.
 
 - `createUserLocationController` implements the asynchronous lifecycle separately
   from React, allowing deterministic cancellation/race tests without a DOM.
@@ -87,8 +87,8 @@ after the suite provides a styled, interactive preview; reload before re-running
 Run `/tests/city-search.html` separately for the twelve existing search scenarios.
 The location suite also covers Lisbon → device → Tokyo → device and a fresh App
 mount whose browser permission is already granted. These DOM suites are not part
-of Node's test command or CI. See [the audit record](USER_LOCATION_AUDIT.md) for
-engine/viewport checks and the physical-device validation still pending.
+of Node's test command or CI. See [test instructions](../tests/README.md) for
+running both suites. Physical-device validation remains a separate check.
 
 Synthetic tests cannot prove native permission prompts, GPS accuracy, mobile
 keyboards, native autofill/touch synthesis, provider availability or every browser.
@@ -96,7 +96,7 @@ Real-device verification remains required before claiming broad compatibility.
 
 ## Manual device checklist
 
-Test the PR preview over HTTPS in iPhone Safari/Chrome, iPadOS Safari/Chrome,
+Test the application over HTTPS in iPhone Safari/Chrome, iPadOS Safari/Chrome,
 Android Chrome and desktop Chrome/Firefox/Edge, recording OS/browser versions.
 
 1. Reset site permission to prompt: no unsolicited dialog on load. Activate the

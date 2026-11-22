@@ -1,4 +1,20 @@
-# City Search interaction regression checks
+# Tests and validation
+
+From the project root, run:
+
+```bash
+npm test
+npm run lint
+npm run build
+git diff --check
+```
+
+The test runner is Node.js, not Vitest. Tests are colocated with the code in
+`src/`; reusable fixtures in `src/features/weather/testing/` are test-only.
+The GitHub Actions workflow runs tests, lint and build on PRs and pushes to main.
+The production build is written to `dist/`, which is not committed.
+
+## City Search DOM suite
 
 Run `npm test` for the Node suite: keyboard handlers, query isolation,
 cancellation, forecast parameters and dashboard integration. It does not mount a DOM.
@@ -46,14 +62,6 @@ Internal option child targets and input focus must not dismiss the popup.
 Autofill coverage models a browser-delivered input/change event. It does not
 verify native browser autofill UI or silent DOM value changes without events;
 React cannot update the controlled search state from an unreported mutation.
-
-## Historical Safari fix
-
-PR #9 (`8bd7902805d7c91e52b5617ec360071a730f843a`) replaced pointerdown
-cancellation with mousedown cancellation. The owner reported successful Safari
-selection on a physical iPhone after deployment. Versions and event traces were
-not recorded. That earlier result does not identify the newer Chrome iOS issue.
-The current correction removes the dependency on cancelling focus defaults.
 
 ## Limits and manual browser checklist
 
